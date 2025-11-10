@@ -1,0 +1,66 @@
+GET http://localhost:5000/projects
+
+####
+GET http://localhost:5000/projects/3
+
+####
+GET http://localhost:5000/engineers
+
+##### Tambah Project
+POST http://localhost:5000/tasks
+Content-Type: application/json
+
+{
+  "id_project": 8,             
+  "SAP": 1001,                  
+  "task_group": "Design Phase", 
+  "task_detail": "Create UI mockups for project PA", 
+  "plan_start_date": "2025-10-02",
+  "plan_end_date": "2025-10-15",
+  "actual_start": null,
+  "actual_end": null,           
+  "platform": "Web",             
+  "task_progress": 0,           
+  "status": "TO_DO"            
+}
+
+
+### Update Project
+PATCH  http://localhost:5000/projects/2
+Content-Type: application/json 
+
+{
+  "SAP": 1001,
+  "project_name": "PA UPDATE",
+  "project_type": "NEW_PROJECT",
+  "level": "HIGH",
+  "req_date": "2025-09-26",
+  "plan_start_date": "2025-10-01",
+  "plan_end_date": "2025-12-01",
+  "remark": "Initial planning",
+  "status": "TO_DO"
+}
+
+### Delete Project
+DELETE http://localhost:5000/projects/3
+
+####
+POST http://localhost:5000/roles
+Content-Type: application/json
+
+{
+  "role": "Supervisor"
+}
+
+
+####
+POST http://localhost:5000/engineers
+Content-Type: application/json
+
+{
+  "SAP": 1001,
+  "id_role": 1,
+  "name": "Tessa"
+}
+
+GET http://localhost:5000/dashboard

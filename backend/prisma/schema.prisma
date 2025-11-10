@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==============================
+// ENUMS
+// ==============================
+enum ProjectLevel {
+  HIGH
+  MID
+  LOW
+}
+
+enum ProjectStatus {
+  TO_DO
+  IN_PROGRESS
+  COMPLETED
+}
+
+// ==============================
+// MODEL: ROLE
+// ==============================
+model Role {
+  id_role   Int        @id @default(autoincrement())
+  role      String     @unique @db.VarChar(50) // ADMIN, ITBP, ITGA, SAP, DATA_SCIENCE
+  users     User[]
+  positions Position[]
+}
+
+// ==============================
+// MODEL: POSITION
+// ==============================
+model Position {
+  id_position Int     @id @default(autoincrement())
+  position    String  @db.VarChar(100)
+  role_id     Int
+  role        Role    @relation(fields: [role_id], references: [id_role])
+  users       User[]
+}
+
+// ==============================
+// MODEL: USER
+// ==============================
+model User {
+  SAP          Int       @id
+  name         String    @db.VarChar(100)
+  username     String    @unique
+  password     String
+  role_id      Int
+  position_id  Int?
+
+  role         Role      @relation(fields: [role_id], references: [id_role])
+  position     Position? @relation(fields: [position_id], references: [id_position])
+
+  // Relasi project dan task
+  projects     Project[] @relation("AssignedProjects")
+  tasks        Task[]    @relation("AssignedTasks")
+}
+
+// ==============================
+// MODEL: PROJECT TYPE
+// ==============================
+model ProjectType {
+  id_type      Int       @id @default(autoincrement())
+  project_type String    @unique @db.VarChar(100) // NEW_PROJECT, ENHANCEMENT
+  projects     Project[]
+}
+
+// ==============================
+// MODEL: PROJECT
+// ==============================
+model Project {
+  id_project       String         @id @default(dbgenerated("concat('prj_', (floor(random() * 1000000))::text)")) @db.VarChar(50)
+  project_name     String         @db.VarChar(200)
+  project_type_id  Int
+  level            ProjectLevel
+  req_date         DateTime?      @db.Date
+  plan_start_date  DateTime?      @db.Date
+  plan_end_date    DateTime?      @db.Date
+  actual_start     DateTime?      @db.Date
+  actual_end       DateTime?      @db.Date
+  live_date        DateTime?      @db.Date
+  project_progress Int            @default(0)
+  remark           String?        @db.Text
+  status           ProjectStatus  @default(TO_DO)
+  created_at       DateTime       @default(now())
+  updated_at       DateTime       @updatedAt
+  created_by       String?
+  updated_by       String?
+
+  // Assigned user
+  assigned_to      Int?
+  user             User?          @relation("AssignedProjects", fields: [assigned_to], references: [SAP])
+
+  projectType      ProjectType    @relation(fields: [project_type_id], references: [id_type])
+  tasks            Task[]         @relation("ProjectTasks")
+  histories        ProjectHistory[]
+}
+
+// ==============================
+// MODEL: TASK GROUP
+// ==============================
+model TaskGroup {
+  id_group   Int     @id @default(autoincrement())
+  task_group String  @unique @db.VarChar(100) // Planning, Development, FAT, SIT, UAT, SCAN, DEPLOY
+  tasks      Task[]
+}
+
+// ==============================
+// MODEL: PLATFORM
+// ==============================
+model Platform {
+  id_platform Int     @id @default(autoincrement())
+  platform    String  @unique @db.VarChar(100) // Mobile, Web
+  tasks       Task[]
+}
+
+// ==============================
+// MODEL: TASK
+// ==============================
+model Task {
+  id_task         String         @id @default(dbgenerated("concat('task_', (floor(random() * 1000000))::text)")) @db.VarChar(50)
+  id_project      String
+  task_detail     String         @db.VarChar(200)
+  task_group_id   Int
+  platform_id     Int?
+  plan_start_date DateTime?      @db.Date
+  plan_end_date   DateTime?      @db.Date
+  actual_start    DateTime?      @db.Date
+  actual_end      DateTime?      @db.Date
+  task_progress   Int            @default(0)
+  status          ProjectStatus  @default(TO_DO)
+  created_at      DateTime       @default(now())
+  updated_at      DateTime       @updatedAt
+  created_by      String?
+  updated_by      String?
+
+  // Assigned user
+  assigned_to     Int?
+  user            User?          @relation("AssignedTasks", fields: [assigned_to], references: [SAP])
+
+  project   Project       @relation("ProjectTasks", fields: [id_project], references: [id_project], onDelete: Cascade)
+  group     TaskGroup     @relation(fields: [task_group_id], references: [id_group])
+  platform  Platform?     @relation(fields: [platform_id], references: [id_platform])
+  histories TaskHistory[]
+}
+
+// ==============================
+// MODEL: PROJECT HISTORY
+// ==============================
+model ProjectHistory {
+  id_history   Int      @id @default(autoincrement())
+  id_project   String
+  updated_at   DateTime @default(now())
+  updated_by   String
+  changes      String?  @db.Text
+
+  project      Project  @relation(fields: [id_project], references: [id_project], onDelete: Cascade)
+}
+
+// ==============================
+// MODEL: TASK HISTORY
+// ==============================
+model TaskHistory {
+  id_history  Int      @id @default(autoincrement())
+  id_task     String
+  updated_at  DateTime @default(now())
+  updated_by  String
+  changes     String?  @db.Text
+
+  task        Task     @relation(fields: [id_task], references: [id_task], onDelete: Cascade)
+}
