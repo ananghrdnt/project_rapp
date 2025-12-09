@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import axios from "axios";
 import useSWR, { useSWRConfig } from "swr";
 import {
@@ -9,7 +9,7 @@ import {
 import { IoTrashOutline, IoPencilOutline } from "react-icons/io5";
 import { FiUsers } from "react-icons/fi";
 import AddEngineer from "./AddEngineer";
-import EditEngineer from "./EditEngineer"; // ✅ Import modal edit
+import EditEngineer from "./EditEngineer";
 import Alert from "../Alert";
 
 const EngineerList = () => {
@@ -18,24 +18,41 @@ const EngineerList = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [alert, setAlert] = useState(null);
   const [sortConfig, setSortConfig] = useState({ key: "SAP", direction: "asc" });
-  const [editId, setEditId] = useState(null); // ✅ handle edit modal
+  const [editId, setEditId] = useState(null);
+
+  // KONFIGURASI TERPUSAT
+  const tableConfig = useMemo(() => ({
+    columns: [
+      { key: "SAP", label: "SAP", sortable: true },
+      { key: "name", label: "Name", sortable: true },
+      { key: "username", label: "Username", sortable: true },
+      { key: "position", label: "Position", sortable: true },
+      { key: "totalTasks", label: "Task", sortable: true },
+      { key: "action", label: "Action", sortable: false }
+    ],
+    pageSize: 10,
+    sortIconClass: "inline ml-1 text-lg text-blue-300"
+  }), []);
+
+  // FUNGSI UTILITAS REUSABLE
   
+  // Format position text (dari "engineer position" ke "Engineer Position")
+  const formatPositionText = useCallback((position) => {
+    if (!position) return "";
+    return position
+      .toLowerCase()
+      .split(" ")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+  }, []);
 
-  // ✅ ambil data engineer
-  const fetcher = async () =>
-    (await axios.get("http://localhost:5000/users?role=ENGINEER")).data;
-
-  const { data: engineers, isLoading } = useSWR("engineers", fetcher);
-
-  if (isLoading)
-    return <h2 className="text-center mt-10 text-gray-600">Loading...</h2>;
-
-  const showAlert = (message, type = "success") => {
+  // Alert handlers
+  const showAlert = useCallback((message, type = "success") => {
     setAlert({ message, type });
     setTimeout(() => setAlert(null), 3000);
-  };
+  }, []);
 
-  const showConfirm = (message, onConfirm) => {
+  const showConfirm = useCallback((message, onConfirm) => {
     setAlert({
       message,
       type: "confirm",
@@ -44,12 +61,97 @@ const EngineerList = () => {
         setAlert(null);
       },
     });
-  };
+  }, []);
 
-  const deleteEngineer = (SAP) => {
+  // Sort icon renderer
+  const renderSortIcon = useCallback((key) => {
+    const { sortIconClass } = tableConfig;
+    
+    if (sortConfig.key !== key) {
+      return <MdOutlineSort className={sortIconClass} />;
+    }
+    
+    return sortConfig.direction === "asc" ? (
+      <MdOutlineArrowDropUp className={sortIconClass} />
+    ) : (
+      <MdOutlineArrowDropDown className={sortIconClass} />
+    );
+  }, [sortConfig, tableConfig]);
+
+  // DATA FETCHING
+  
+  const fetcher = useCallback(async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/users?role=ENGINEER");
+      return res.data;
+    } catch (error) {
+      console.error("Error fetching engineers:", error);
+      showAlert("Failed to load engineer data", "error");
+      return [];
+    }
+  }, [showAlert]);
+
+  const { data: engineers = [], isLoading } = useSWR("engineers", fetcher);
+
+  // DATA PROCESSING
+  
+  // Filter engineers berdasarkan search
+  const filteredEngineers = useMemo(() => {
+    if (!search.trim()) return engineers;
+
+    const searchLower = search.toLowerCase();
+    return engineers.filter((eng) => {
+      return (
+        eng.name?.toLowerCase().includes(searchLower) ||
+        eng.username?.toLowerCase().includes(searchLower) ||
+        eng.SAP?.toString().includes(search)
+      );
+    });
+  }, [engineers, search]);
+
+  // Sort engineers
+  const sortedEngineers = useMemo(() => {
+    return [...filteredEngineers].sort((a, b) => {
+      const { key, direction } = sortConfig;
+      const order = direction === "asc" ? 1 : -1;
+      
+      const valA = a[key];
+      const valB = b[key];
+      
+      // Handle numeric comparison for SAP and totalTasks
+      if (key === "SAP" || key === "totalTasks") {
+        return (valA - valB) * order;
+      }
+      
+      // String comparison for other fields
+      if (typeof valA === "string" && typeof valB === "string") {
+        return valA.localeCompare(valB) * order;
+      }
+      
+      return 0;
+    });
+  }, [filteredEngineers, sortConfig]);
+
+  // HANDLERS
+  
+  const handleSort = useCallback((key) => {
+    setSortConfig((prev) => {
+      if (prev.key === key) {
+        return { key, direction: prev.direction === "asc" ? "desc" : "asc" };
+      }
+      return { key, direction: "asc" };
+    });
+  }, []);
+
+  const handleDelete = useCallback((engineer) => {
+    if (engineer.totalTasks > 0) {
+      showAlert("Cannot delete engineer with assigned tasks", "error");
+      return;
+    }
+
     showConfirm("Are you sure you want to delete this engineer?", async () => {
       try {
-        await axios.delete(`http://localhost:5000/users/${SAP}`);
+        await axios.delete(`http://localhost:5000/users/${engineer.SAP}`);
         mutate("engineers");
         showAlert("Engineer deleted successfully", "success");
       } catch (err) {
@@ -57,40 +159,41 @@ const EngineerList = () => {
         showAlert("Failed to delete engineer", "error");
       }
     });
-  };
+  }, [showAlert, showConfirm, mutate]);
 
-  const handleSort = (key) => {
-    setSortConfig((prev) => {
-      if (prev.key === key) {
-        return { key, direction: prev.direction === "asc" ? "desc" : "asc" };
-      }
-      return { key, direction: "asc" };
-    });
-  };
+  const handleEdit = useCallback((SAP) => {
+    setEditId(SAP);
+  }, []);
 
-  const sortedEngineers = [...engineers]
-    .filter(
-      (eng) =>
-        eng.name.toLowerCase().includes(search.toLowerCase()) ||
-        eng.username?.toLowerCase().includes(search.toLowerCase()) ||
-        eng.SAP?.toString().includes(search)
-    )
-    .sort((a, b) => {
-      const { key, direction } = sortConfig;
-      const order = direction === "asc" ? 1 : -1;
-      if (typeof a[key] === "string") return a[key].localeCompare(b[key]) * order;
-      return (a[key] - b[key]) * order;
-    });
+  const handleAdd = useCallback(() => {
+    setShowAddModal(true);
+  }, []);
 
-  const renderSortIcon = (key) => {
-    const iconClass = "inline ml-1 text-lg text-blue-300";
-    if (sortConfig.key !== key) return <MdOutlineSort className={iconClass} />;
-    return sortConfig.direction === "asc" ? (
-      <MdOutlineArrowDropUp className={iconClass} />
-    ) : (
-      <MdOutlineArrowDropDown className={iconClass} />
-    );
-  };
+  const handleModalClose = useCallback((type) => {
+    if (type === "add") {
+      setShowAddModal(false);
+    } else if (type === "edit") {
+      setEditId(null);
+    }
+  }, []);
+
+  const handleModalSave = useCallback(async (type) => {
+    await mutate("engineers");
+    
+    if (type === "add") {
+      setShowAddModal(false);
+      showAlert("Engineer added successfully", "success");
+    } else if (type === "edit") {
+      setEditId(null);
+      showAlert("Engineer updated successfully", "success");
+    }
+  }, [mutate, showAlert]);
+
+  // RENDER COMPONENTS
+  
+  if (isLoading) {
+    return <h2 className="text-center mt-10 text-gray-600">Loading...</h2>;
+  }
 
   return (
     <div className="p-6 min-h-screen font-sans text-[0.7rem]">
@@ -103,7 +206,9 @@ const EngineerList = () => {
         <div className="bg-white p-3 rounded-xl shadow flex justify-between items-center hover:shadow-lg transition-shadow">
           <div>
             <div className="text-gray-500 text-[0.65rem]">Total Engineers</div>
-            <div className="text-[0.8rem] font-bold text-gray-800">{engineers.length}</div>
+            <div className="text-[0.8rem] font-bold text-gray-800">
+              {engineers.length}
+            </div>
           </div>
           <div className="bg-blue-600 p-2.5 rounded-full text-white flex items-center justify-center text-[0.8rem]">
             <FiUsers size={16} />
@@ -115,13 +220,13 @@ const EngineerList = () => {
       <div className="flex justify-end gap-2 mb-3 flex-wrap">
         <input
           type="text"
-          placeholder="Search..."
+          placeholder="Search by name, username, or SAP..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="border border-gray-300 rounded-md px-3 py-1 text-[0.65rem] w-44 focus:outline-none focus:ring-1 focus:ring-blue-400"
         />
         <button
-          onClick={() => setShowAddModal(true)}
+          onClick={handleAdd}
           className="bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg text-[0.65rem] flex items-center gap-1 cursor-pointer transition-colors shadow-md"
         >
           Add Engineer
@@ -133,73 +238,38 @@ const EngineerList = () => {
         <table className="table-fixed w-full border-collapse text-[0.65rem]">
           <thead>
             <tr>
-              {[
-                { key: "SAP", label: "SAP" },
-                { key: "name", label: "Name" },
-                { key: "username", label: "Username" },
-                { key: "position", label: "Position" },
-                { key: "totalTasks", label: "Task" },
-              ].map((col) => (
+              {tableConfig.columns.map((col) => (
                 <th
                   key={col.key}
-                  onClick={() => handleSort(col.key)}
-                  className="text-left px-2 py-1 font-semibold text-white bg-blue-600 cursor-pointer select-none"
+                  onClick={col.sortable ? () => handleSort(col.key) : undefined}
+                  className={`text-left px-2 py-1 font-semibold text-white bg-blue-600 ${
+                    col.sortable ? "cursor-pointer select-none" : "cursor-default"
+                  }`}
                 >
-                  {col.label} {renderSortIcon(col.key)}
+                  <span className="flex items-center">
+                    {col.label}
+                    {col.sortable && renderSortIcon(col.key)}
+                  </span>
                 </th>
               ))}
-              <th className="text-left px-2 py-1 font-semibold text-white bg-blue-600">
-                Action
-              </th>
             </tr>
           </thead>
           <tbody>
             {sortedEngineers.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-2 text-gray-400 italic">
-                  No engineers found
+                <td colSpan={tableConfig.columns.length} className="text-center py-2 text-gray-400 italic">
+                  {search ? "No engineers match your search" : "No engineers found"}
                 </td>
               </tr>
             ) : (
-              sortedEngineers.map((eng) => (
-                <tr key={eng.SAP} className="hover:bg-blue-50 transition-colors">
-                  <td className="px-2 py-1 border-b border-gray-200">{eng.SAP}</td>
-                  <td className="px-2 py-1 border-b border-gray-200">{eng.name}</td>
-                  <td className="px-2 py-1 border-b border-gray-200">{eng.username}</td>
-                  <td className="px-2 py-1 border-b border-gray-200">
-                    {eng.position
-                      ? eng.position
-                          .toLowerCase()
-                          .split(" ")
-                          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-                          .join(" ")
-                      : ""}
-                  </td>
-                  <td className="px-2 py-1 border-b border-gray-200">{eng.totalTasks}</td>
-                  <td className="px-2 py-1 border-b border-gray-200 text-left flex justify-left gap-1">
-                    {/* 🔹 Edit button */}
-                    <button
-                      onClick={() => setEditId(eng.SAP)} // ✅ buka modal edit
-                      className="bg-blue-500 hover:bg-blue-600 text-white p-1 rounded-lg flex items-center justify-center text-[0.7rem] w-6 h-6 transition-colors shadow-sm"
-                    >
-                      <IoPencilOutline size={14} />
-                    </button>
-
-                    {/* 🔹 Delete button */}
-                    <button
-                      onClick={() => {
-                        if (eng.totalTasks > 0) {
-                          showAlert("Cannot delete engineer with assigned tasks", "error");
-                          return;
-                        }
-                        deleteEngineer(eng.SAP);
-                      }}
-                      className="bg-red-500 hover:bg-red-600 text-white p-1 rounded-lg flex items-center justify-center text-[0.7rem] w-6 h-6 transition-colors shadow-sm"
-                    >
-                      <IoTrashOutline size={14} />
-                    </button>
-                  </td>
-                </tr>
+              sortedEngineers.map((engineer) => (
+                <EngineerRow
+                  key={engineer.SAP}
+                  engineer={engineer}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  formatPosition={formatPositionText}
+                />
               ))
             )}
           </tbody>
@@ -223,32 +293,79 @@ const EngineerList = () => {
         />
       )}
 
-      {/* Add Modal */}
+      {/* Modals */}
       {showAddModal && (
         <AddEngineer
-          onClose={() => setShowAddModal(false)}
-          onSave={async () => {
-            await mutate("engineers");
-            setShowAddModal(false);
-            showAlert("Engineer added successfully", "success");
-          }}
+          onClose={() => handleModalClose("add")}
+          onSave={() => handleModalSave("add")}
         />
       )}
 
-      {/* ✅ Edit Modal */}
       {editId && (
         <EditEngineer
           SAP={editId}
-          onClose={() => setEditId(null)}
-          onSave={async () => {
-            await mutate("engineers");
-            setEditId(null);
-            showAlert("Engineer updated successfully", "success");
-          }}
+          onClose={() => handleModalClose("edit")}
+          onSave={() => handleModalSave("edit")}
         />
       )}
     </div>
   );
 };
+
+
+// ENGINEER ROW COMPONENT 
+const EngineerRow = React.memo(({ engineer, onEdit, onDelete, formatPosition }) => {
+  return (
+    <tr className="hover:bg-blue-50 transition-colors">
+      <td className="px-2 py-1 border-b border-gray-200">{engineer.SAP}</td>
+      <td className="px-2 py-1 border-b border-gray-200">{engineer.name}</td>
+      <td className="px-2 py-1 border-b border-gray-200">{engineer.username}</td>
+      <td className="px-2 py-1 border-b border-gray-200">
+        {formatPosition(engineer.position)}
+      </td>
+      <td className="px-2 py-1 border-b border-gray-200">{engineer.totalTasks}</td>
+      <td className="px-2 py-1 border-b border-gray-200">
+        <div className="flex gap-1">
+          <ActionButton
+            icon={IoPencilOutline}
+            color="blue"
+            onClick={() => onEdit(engineer.SAP)}
+            tooltip="Edit engineer"
+          />
+          <ActionButton
+            icon={IoTrashOutline}
+            color="red"
+            onClick={() => onDelete(engineer)}
+            tooltip="Delete engineer"
+          />
+        </div>
+      </td>
+    </tr>
+  );
+});
+
+EngineerRow.displayName = 'EngineerRow';
+
+
+// ACTION BUTTON COMPONENT 
+const ActionButton = React.memo(({ icon: Icon, color, onClick, tooltip }) => {
+  const colorClasses = {
+    blue: "bg-blue-500 hover:bg-blue-600",
+    red: "bg-red-500 hover:bg-red-600"
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className={`${colorClasses[color] || "bg-gray-500"} text-white p-1 rounded-lg flex items-center justify-center text-[0.7rem] w-6 h-6 transition-colors shadow-sm`}
+      title={tooltip}
+      aria-label={tooltip}
+    >
+      <Icon size={14} />
+    </button>
+  );
+});
+
+ActionButton.displayName = 'ActionButton';
 
 export default EngineerList;

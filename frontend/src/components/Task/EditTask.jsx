@@ -36,6 +36,7 @@ const EditTask = ({ id_task, onClose, onSave }) => {
   const primaryBlue = "bg-blue-600";
   const primaryGreen = "bg-green-600 hover:bg-green-700";
 
+  // Ambil data user dari localStorage
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
     if (user) {
@@ -44,6 +45,7 @@ const EditTask = ({ id_task, onClose, onSave }) => {
     }
   }, []);
 
+  // Fetch dropdown data
   useEffect(() => {
     const fetchDropdownData = async () => {
       try {
@@ -66,6 +68,7 @@ const EditTask = ({ id_task, onClose, onSave }) => {
     fetchDropdownData();
   }, []);
 
+  // Fetch task detail
   useEffect(() => {
     const fetchTask = async () => {
       try {
@@ -80,79 +83,67 @@ const EditTask = ({ id_task, onClose, onSave }) => {
         setActualEnd(t.actual_end?.substring(0, 10) || "");
         setPlatformId(t.platform_id?.toString() || "");
         setTaskProgress(t.task_progress || 0);
-      } catch (error) {
-        console.error(error);
+      } catch (err) {
+        console.error(err);
       }
     };
     if (id_task) fetchTask();
   }, [id_task]);
 
+  // Hitung durasi project
   useEffect(() => {
-    if (planStart && planEnd) {
-      const start = new Date(planStart);
-      const end = new Date(planEnd);
-      if (end >= start) {
-        const diffMs = end - start;
-        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-        setDurationText(`Project will do in ${diffDays} day${diffDays > 1 ? "s" : ""}`);
-      } else setDurationText("");
+    if (!planStart || !planEnd) return setDurationText("");
+    const start = new Date(planStart);
+    const end = new Date(planEnd);
+    if (end >= start) {
+      const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+      setDurationText(`Project will do in ${diffDays} day${diffDays > 1 ? "s" : ""}`);
     } else setDurationText("");
   }, [planStart, planEnd]);
 
   const getUsersByGroup = () => {
     switch (assignedGroup) {
-      case "ITGA": return itgas;
-      case "SAP": return saps;
-      case "DATA_SCIENCE": return dataScientists;
-      default: return [];
+      case "ITGA":
+        return itgas;
+      case "SAP":
+        return saps;
+      case "DATA_SCIENCE":
+        return dataScientists;
+      default:
+        return [];
     }
   };
 
- const validate = () => {
-  const newErrors = {};
-  if (userRole === "ADMIN" && !assignedGroup)
-    newErrors.assignedGroup = "Assigned group is required";
-  if (!assignedTo) newErrors.assignedTo = "Assigned user is required";
-  if (!taskGroupId) newErrors.taskGroupId = "Task group is required";
-  if (!taskDetail) newErrors.taskDetail = "Task detail is required";
-  if (!planStart) newErrors.planStart = "Plan start date is required";
-  if (!planEnd) newErrors.planEnd = "Plan end date is required";
-  if (!platformId) newErrors.platformId = "Platform is required";
+  const validate = () => {
+    const newErrors = {};
+    if (userRole === "ADMIN" && !assignedGroup) newErrors.assignedGroup = "Assigned group is required";
+    if (!assignedTo) newErrors.assignedTo = "Assigned user is required";
+    if (!taskGroupId) newErrors.taskGroupId = "Task group is required";
+    if (!taskDetail) newErrors.taskDetail = "Task detail is required";
+    if (!planStart) newErrors.planStart = "Plan start date is required";
+    if (!planEnd) newErrors.planEnd = "Plan end date is required";
+    if (!platformId) newErrors.platformId = "Platform is required";
 
-  if (planStart && planEnd && new Date(planStart) > new Date(planEnd)) {
-    newErrors.planStart = "Plan start cannot be after plan end";
-    newErrors.planEnd = "Plan end cannot be before plan start";
-  }
+    if (planStart && planEnd && new Date(planStart) > new Date(planEnd)) {
+      newErrors.planStart = "Plan start cannot be after plan end";
+      newErrors.planEnd = "Plan end cannot be before plan start";
+    }
+    if (actualStart && actualEnd && new Date(actualEnd) < new Date(actualStart)) {
+      newErrors.actualEnd = "Actual end cannot be before actual start";
+    }
+    if (Number(taskProgress) < 0 || Number(taskProgress) > 100) {
+      newErrors.taskProgress = "Progress must be between 0-100";
+    }
+    if (Number(taskProgress) > 0 && !actualStart) newErrors.actualStart = "Actual start required when progress > 0%";
+    if (actualStart && Number(taskProgress) === 0) newErrors.taskProgress = "Progress must be > 0% when actual start filled";
+    if (Number(taskProgress) === 100 && !actualEnd) newErrors.actualEnd = "Actual end required when progress = 100%";
 
-  if (actualStart && actualEnd && new Date(actualEnd) < new Date(actualStart)) {
-    newErrors.actualEnd = "Actual end cannot be before actual start";
-  }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
-  if (Number(taskProgress) < 0 || Number(taskProgress) > 100) {
-    newErrors.taskProgress = "Progress must be between 0-100";
-  }
-
-  // ✅ Tambahan aturan:
-  if (Number(taskProgress) > 0 && !actualStart) {
-    newErrors.actualStart = "Actual start is required when progress > 0%";
-  }
-
-  if (actualStart && Number(taskProgress) === 0) {
-    newErrors.taskProgress = "Progress must be > 0% when actual start is filled";
-  }
-
-  if (Number(taskProgress) === 100 && !actualEnd) {
-    newErrors.actualEnd = "Actual end is required when progress = 100%";
-  }
-
-  setErrors(newErrors);
-  return Object.keys(newErrors).length === 0;
-};
-
-
-  const showAlert = (message, type = "error") => {
-    setAlert({ message, type });
-    setTimeout(() => setAlert(null), 3000);
+  const showAlert = (msg, type = "error") => {
+    setAlert({ message: msg, type });
   };
 
   const updateTask = async (e) => {
@@ -193,8 +184,8 @@ const EditTask = ({ id_task, onClose, onSave }) => {
                 { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
               );
               setAlert(null);
-              if (onSave) onSave();
-              if (onClose) onClose();
+              onSave?.();
+              onClose?.();
               navigate(`/projects/${id_project}`);
             } catch (err) {
               console.error(err.response?.data || err.message);
@@ -215,7 +206,7 @@ const EditTask = ({ id_task, onClose, onSave }) => {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-xl w-[700px] shadow-2xl overflow-hidden transition-all duration-300 transform scale-100">
+      <div className="bg-white rounded-xl w-[700px] shadow-2xl overflow-hidden">
         <div className={`p-4 flex justify-between items-center text-white ${primaryBlue} border-b`}>
           <h3 className="text-sm font-bold">FORM EDIT TASK</h3>
           <button onClick={onClose} className="p-1 rounded-full hover:bg-white/20">
@@ -224,6 +215,7 @@ const EditTask = ({ id_task, onClose, onSave }) => {
         </div>
 
         <form onSubmit={updateTask} className="p-6 grid grid-cols-2 gap-4">
+          {/* Assigned Group & To */}
           {userRole === "ADMIN" && (
             <>
               <div className="flex flex-col gap-1">
@@ -249,14 +241,12 @@ const EditTask = ({ id_task, onClose, onSave }) => {
                 <select
                   value={assignedTo}
                   onChange={(e) => setAssignedTo(e.target.value)}
-                  className={inputClass("assignedTo")}
                   disabled={!assignedGroup}
+                  className={inputClass("assignedTo")}
                 >
                   <option value="">-- Select User --</option>
                   {getUsersByGroup().map((u) => (
-                    <option key={u.SAP} value={u.SAP}>
-                      {u.name}
-                    </option>
+                    <option key={u.SAP} value={u.SAP}>{u.name}</option>
                   ))}
                 </select>
                 {errors.assignedTo && <span className="text-red-500 text-xs mt-0.5">{errors.assignedTo}</span>}
@@ -267,23 +257,14 @@ const EditTask = ({ id_task, onClose, onSave }) => {
           {userRole !== "ADMIN" && (
             <div className="flex flex-col gap-1 col-span-2">
               <label className="text-xs font-medium">Assigned To</label>
-              <input
-                type="text"
-                value={`${userName}`}
-                disabled
-                className="border rounded-lg px-2 py-1.5 text-xs bg-gray-100 text-gray-600 w-full"
-              />
+              <input type="text" value={userName} disabled className="border rounded-lg px-2 py-1.5 text-xs bg-gray-100 text-gray-600 w-full" />
             </div>
           )}
 
           {/* Task Group */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium">Task Group</label>
-            <select
-              value={taskGroupId}
-              onChange={(e) => setTaskGroupId(e.target.value)}
-              className={inputClass("taskGroupId")}
-            >
+            <select value={taskGroupId} onChange={(e) => setTaskGroupId(e.target.value)} className={inputClass("taskGroupId")}>
               <option value="">-- Select Task Group --</option>
               {taskGroups.map((g) => (
                 <option key={g.id_group} value={g.id_group}>{g.task_group}</option>
@@ -295,11 +276,7 @@ const EditTask = ({ id_task, onClose, onSave }) => {
           {/* Platform */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium">Platform</label>
-            <select
-              value={platformId}
-              onChange={(e) => setPlatformId(e.target.value)}
-              className={inputClass("platformId")}
-            >
+            <select value={platformId} onChange={(e) => setPlatformId(e.target.value)} className={inputClass("platformId")}>
               <option value="">-- Select Platform --</option>
               {platforms.map((p) => (
                 <option key={p.id_platform} value={p.id_platform}>{p.platform}</option>
@@ -311,13 +288,7 @@ const EditTask = ({ id_task, onClose, onSave }) => {
           {/* Task Detail */}
           <div className="flex flex-col gap-1 col-span-2">
             <label className="text-xs font-medium">Task Detail</label>
-            <textarea
-              value={taskDetail}
-              onChange={(e) => setTaskDetail(e.target.value)}
-              rows={2}
-              className={inputClass("taskDetail")}
-              placeholder="Details of task"
-            />
+            <textarea value={taskDetail} onChange={(e) => setTaskDetail(e.target.value)} rows={2} className={inputClass("taskDetail")} placeholder="Details of task" />
             {errors.taskDetail && <span className="text-red-500 text-xs mt-0.5">{errors.taskDetail}</span>}
           </div>
 
@@ -341,7 +312,7 @@ const EditTask = ({ id_task, onClose, onSave }) => {
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium">Actual End</label>
-            <input type="date" value={actualEnd} onChange={(e) => setActualEnd(e.target.value)} className={inputClass("actualEnd")} disabled={Number(taskProgress) < 100} />
+            <input type="date" value={actualEnd} onChange={(e) => setActualEnd(e.target.value)} disabled={Number(taskProgress) < 100} className={inputClass("actualEnd")} />
             {errors.actualEnd && <span className="text-red-500 text-xs mt-0.5">{errors.actualEnd}</span>}
           </div>
 
@@ -362,9 +333,7 @@ const EditTask = ({ id_task, onClose, onSave }) => {
           </div>
         </form>
 
-        {alert && (
-          <Alert message={alert.message} type={alert.type} onClose={() => setAlert(null)} actions={alert.actions || [{ label: "OK", type: "confirm", onClick: () => setAlert(null) }]} />
-        )}
+        {alert && <Alert message={alert.message} type={alert.type} onClose={() => setAlert(null)} actions={alert.actions || [{ label: "OK", type: "confirm", onClick: () => setAlert(null) }]} />}
       </div>
     </div>
   );

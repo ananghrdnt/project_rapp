@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import axios from "axios";
 import { FaTimes, FaSave } from "react-icons/fa";
 import Alert from "../Alert";
@@ -11,240 +11,299 @@ const EditData = ({ type, dataId, onClose, onSave }) => {
   const [loading, setLoading] = useState(false);
   const [alert, setAlert] = useState(null);
 
-  const primaryBlue = "bg-blue-600";
-  const primaryGreen = "bg-green-600 hover:bg-green-700";
-
-  // 🔹 Ambil role untuk Position User
-  useEffect(() => {
-    if (type === "positionUser") {
-      const fetchRoles = async () => {
-        try {
-          const res = await axios.get("http://localhost:5000/roles");
-          setRoles(res.data);
-        } catch (err) {
-          console.error("Failed to load roles:", err);
-        }
-      };
-      fetchRoles();
+  // KONFIGURASI DATA 
+  const dataConfig = useMemo(() => ({
+    projectType: {
+      endpoint: "http://localhost:5000/projecttypes",
+      getEndpoint: (id) => `http://localhost:5000/projecttypes/${id}`,
+      payloadField: "project_type",
+      method: "patch",
+      title: "EDIT PROJECT TYPE",
+      label: "Project Type",
+      placeholder: "Enter Project Type",
+      hasRole: false
+    },
+    platformTask: {
+      endpoint: "http://localhost:5000/platforms",
+      getEndpoint: (id) => `http://localhost:5000/platforms/${id}`,
+      payloadField: "platform",
+      method: "patch",
+      title: "EDIT PLATFORM TASK",
+      label: "Platform Task",
+      placeholder: "Enter Platform Task",
+      hasRole: false
+    },
+    taskGroup: {
+      endpoint: "http://localhost:5000/task-groups",
+      getEndpoint: (id) => `http://localhost:5000/task-groups/${id}`,
+      payloadField: "task_group",
+      method: "put",
+      title: "EDIT TASK GROUP",
+      label: "Task Group",
+      placeholder: "Enter Task Group",
+      hasRole: false
+    },
+    positionUser: {
+      endpoint: "http://localhost:5000/positions",
+      getEndpoint: (id) => `http://localhost:5000/positions/${id}`,
+      payloadField: "position",
+      method: "put",
+      title: "EDIT POSITION USER",
+      label: "Position",
+      placeholder: "Enter Position",
+      hasRole: true
     }
-  }, [type]);
+  }), []);
 
-  // 🔹 Ambil data awal untuk di edit
-useEffect(() => {
-  const fetchData = async () => {
-    try {
-      let url = "";
-      switch (type) {
-        case "projectType":
-          url = `http://localhost:5000/projecttypes/${dataId}`;
-          break;
-        case "platformTask":
-          url = `http://localhost:5000/platforms/${dataId}`;
-          break;
-        case "taskGroup":
-          url = `http://localhost:5000/task-groups/${dataId}`;
-          break;
-        case "positionUser":
-          url = `http://localhost:5000/positions/${dataId}`;
-          break;
-        default:
-          break;
-      }
+  const currentConfig = dataConfig[type];
 
-      const res = await axios.get(url);
-      const data = res.data;
+  
+  // FUNGSI UTILITAS
 
-      // Mapping sesuai field masing-masing type
-      switch (type) {
-        case "projectType":
-          setName(data.project_type || "");
-          break;
-        case "platformTask":
-          setName(data.platform || "");
-          break;
-        case "taskGroup":
-          setName(data.task_group || "");
-          break;
-        case "positionUser":
-          setName(data.position || "");
-          setRoleId(data.role_id || "");
-          break;
-        default:
-          break;
-      }
-    } catch (err) {
-      console.error("Failed to fetch data for edit:", err);
-    }
-  };
+  // Tampilkan error alert
+  const showError = useCallback((msg) => {
+    setAlert({ message: msg, type: "error" });
+    setTimeout(() => setAlert(null), 3000);
+  }, []);
 
-  if (dataId) fetchData();
-}, [type, dataId]);
-
-
-  const validate = () => {
+  // Validasi form
+  const validate = useCallback(() => {
     const newErrors = {};
-    if (!name) newErrors.name = "Field is required";
-
-    if (type === "positionUser" && !roleId) newErrors.roleId = "Role is required";
+    
+    if (!name.trim()) {
+      newErrors.name = `${currentConfig.label} is required`;
+    }
+    
+    if (type === "positionUser" && !roleId) {
+      newErrors.roleId = "Role is required";
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [name, roleId, type, currentConfig]);
 
-  const showError = (msg) => {
-    setAlert({ message: msg, type: "error" });
-    setTimeout(() => setAlert(null), 3000);
-  };
+  // HANDLERS 
+  // Handler untuk close modal
+  const handleClose = useCallback(() => {
+    if (onClose) onClose();
+  }, [onClose]);
 
-  const saveData = async (e) => {
+  // Handler untuk konfirmasi save
+  const handleConfirmSave = useCallback(async () => {
+    if (!dataId || !currentConfig) return;
+    
+    setLoading(true);
+    
+    try {
+      const payload = type === "positionUser" 
+        ? { 
+            [currentConfig.payloadField]: name,
+            role_id: Number(roleId)
+          }
+        : { 
+            [currentConfig.payloadField]: name 
+          };
+
+      const url = currentConfig.getEndpoint(dataId);
+      
+      if (currentConfig.method === "patch") {
+        await axios.patch(url, payload);
+      } else {
+        await axios.put(url, payload);
+      }
+      
+      setAlert({
+        message: `${currentConfig.label} updated successfully!`,
+        type: "success"
+      });
+      
+      setTimeout(() => {
+        setAlert(null);
+        if (onSave) onSave();
+        if (onClose) onClose();
+      }, 1000);
+      
+    } catch (error) {
+      const errorMsg = error.response?.data?.msg || "Failed to update, please try again!";
+      showError(errorMsg);
+      console.error("Edit data error:", errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  }, [name, roleId, type, currentConfig, dataId, onSave, onClose, showError]);
+
+  // Handler untuk submit form
+  const handleSubmit = useCallback((e) => {
     e.preventDefault();
+    
     if (!validate()) {
       showError("Please fill in all required fields.");
       return;
     }
 
     setAlert({
-      message: `Are you sure you want to update this ${type}?`,
+      message: `Are you sure you want to update this ${currentConfig.label}?`,
       type: "confirm",
       actions: [
-        { label: "Cancel", type: "cancel", onClick: () => setAlert(null) },
+        { 
+          label: "Cancel", 
+          type: "cancel", 
+          onClick: () => setAlert(null) 
+        },
         {
           label: "Confirm",
           type: "confirm",
-          onClick: async () => {
-            setLoading(true);
-            try {
-              let url = "";
-              let payload = {};
-
-              switch (type) {
-                case "projectType":
-                  url = `http://localhost:5000/projecttypes/${dataId}`;
-                  payload = { project_type: name };
-                  break;
-                case "platformTask":
-                  url = `http://localhost:5000/platforms/${dataId}`;
-                  payload = { platform: name };
-                  break;
-                case "taskGroup":
-                  url = `http://localhost:5000/task-groups/${dataId}`;
-                  payload = { task_group: name };
-                  break;
-                case "positionUser":
-                  url = `http://localhost:5000/positions/${dataId}`;
-                  payload = { position: name, role_id: Number(roleId) };
-                  break;
-                default:
-                  break;
-              }
-
-// Untuk projectType dan platformTask gunakan PATCH
-if (type === "projectType" || type === "platformTask") {
-  await axios.patch(url, payload);
-} else {
-  await axios.put(url, payload);
-}
-              setTimeout(() => {
-                setAlert(null);
-                if (onSave) onSave();
-                if (onClose) onClose();
-              }, 1000);
-            } catch (error) {
-              const msg =
-                error.response?.data?.msg || "Failed to update, please try again!";
-              showError(msg);
-              console.error("Edit data error:", msg);
-            } finally {
-              setLoading(false);
-            }
-          },
+          onClick: handleConfirmSave
         },
       ],
     });
-  };
+  }, [validate, showError, currentConfig, handleConfirmSave]);
 
-  const inputClass = (field) =>
+ 
+  // USE EFFECT
+
+  // Ambil data roles untuk positionUser
+  useEffect(() => {
+    const fetchRoles = async () => {
+      if (type === "positionUser") {
+        try {
+          const res = await axios.get("http://localhost:5000/roles");
+          setRoles(res.data);
+        } catch (err) {
+          console.error("Failed to load roles:", err);
+          showError("Failed to load roles");
+        }
+      }
+    };
+
+    fetchRoles();
+  }, [type, showError]);
+
+  // Ambil data yang akan diedit
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!dataId || !currentConfig) return;
+
+      try {
+        const url = currentConfig.getEndpoint(dataId);
+        const res = await axios.get(url);
+        const data = res.data;
+
+        if (type === "positionUser") {
+          setName(data.position || "");
+          setRoleId(data.role_id || "");
+        } else {
+          setName(data[currentConfig.payloadField] || "");
+        }
+      } catch (err) {
+        console.error("Failed to fetch data for edit:", err);
+        showError("Failed to load data for editing");
+      }
+    };
+
+    fetchData();
+  }, [type, dataId, currentConfig, showError]);
+
+  
+  // STYLING UTILITAS
+  const inputClass = useMemo(() => (field) => 
     `border rounded-lg px-2 py-1.5 text-xs w-full transition duration-150 ease-in-out placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-      errors[field] ? "border-red-500 bg-red-50" : "border-gray-300 focus:border-blue-500"
-    }`;
+      errors[field] 
+        ? "border-red-500 bg-red-50" 
+        : "border-gray-300 focus:border-blue-500"
+    }`, [errors]);
+
+  
+  // RENDER
+  
+  if (!currentConfig) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4 font-sans backdrop-blur-sm">
       <div className="bg-white rounded-xl w-[420px] max-w-full shadow-2xl overflow-hidden transition-all duration-300 transform scale-100">
         {/* Header */}
-        <div
-          className={`p-4 flex justify-between items-center text-white ${primaryBlue} border-b border-blue-700`}
-        >
+        <div className="p-4 flex justify-between items-center text-white bg-blue-600 border-b border-blue-700">
           <h3 className="text-sm font-bold tracking-wide">
-            {`EDIT ${type === "projectType" ? "PROJECT TYPE" :
-                type === "platformTask" ? "PLATFORM TASK" :
-                type === "taskGroup" ? "TASK GROUP" :
-                "POSITION USER"}`}
+            {currentConfig.title}
           </h3>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1 rounded-full hover:bg-white/20 transition-colors text-white"
+            aria-label="Close modal"
           >
             <FaTimes className="w-5 h-5" />
           </button>
         </div>
 
         {/* Body */}
-        <form onSubmit={saveData} className="p-6">
+        <form onSubmit={handleSubmit} className="p-6">
           <div className="flex flex-col gap-4">
-            {/* Name / Position Field */}
+            {/* Name Field */}
             <div className="flex flex-col gap-1">
               <label className="font-medium text-xs text-gray-700">
-                {type === "positionUser" ? "Position" :
-                  type === "projectType" ? "Project Type" :
-                  type === "platformTask" ? "Platform Task" :
-                  "Task Group"}
+                {currentConfig.label}
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className={inputClass("name")}
-                placeholder={`Enter ${type === "positionUser" ? "Position" : type}`}
+                placeholder={currentConfig.placeholder}
+                disabled={loading}
               />
               {errors.name && (
-                <span className="text-red-500 text-xs mt-0.5">{errors.name}</span>
+                <span className="text-red-500 text-xs mt-0.5">
+                  {errors.name}
+                </span>
               )}
             </div>
 
-            {/* Role Dropdown for Position User */}
+            {/* Role Dropdown (hanya untuk Position User) */}
             {type === "positionUser" && (
               <div className="flex flex-col gap-1">
-                <label className="font-medium text-xs text-gray-700">Role</label>
+                <label className="font-medium text-xs text-gray-700">
+                  Role
+                </label>
                 <select
                   value={roleId}
                   onChange={(e) => setRoleId(e.target.value)}
                   className={inputClass("roleId") + " appearance-none cursor-pointer"}
+                  disabled={loading}
                 >
                   <option value="" disabled>
                     -- Select Role --
                   </option>
-                  {roles.map((r) => (
-                    <option key={r.id_role} value={r.id_role}>
-                      {r.role}
+                  {roles.map((role) => (
+                    <option key={role.id_role} value={role.id_role}>
+                      {role.role}
                     </option>
                   ))}
                 </select>
                 {errors.roleId && (
-                  <span className="text-red-500 text-xs mt-0.5">{errors.roleId}</span>
+                  <span className="text-red-500 text-xs mt-0.5">
+                    {errors.roleId}
+                  </span>
                 )}
               </div>
             )}
           </div>
 
-          {/* Button */}
+          {/* Actions */}
           <div className="flex justify-end pt-6 border-t mt-6">
             <button
               type="submit"
               disabled={loading}
-              className={`${
-                loading ? "bg-gray-400 cursor-not-allowed" : primaryGreen
-              } text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-md transition-all duration-200 transform active:scale-[0.98] hover:shadow-lg`}
+              className={`
+                ${loading 
+                  ? "bg-gray-400 cursor-not-allowed" 
+                  : "bg-green-600 hover:bg-green-700"
+                } 
+                text-white px-3 py-1.5 rounded-lg text-xs font-bold 
+                flex items-center gap-2 shadow-md transition-all 
+                duration-200 transform active:scale-[0.98] hover:shadow-lg
+              `}
             >
               <FaSave className="w-4 h-4" />
               {loading ? "Saving..." : "Save"}
@@ -258,7 +317,13 @@ if (type === "projectType" || type === "platformTask") {
             message={alert.message}
             type={alert.type}
             actions={
-              alert.actions || [{ label: "OK", type: "confirm", onClick: () => setAlert(null) }]
+              alert.actions || [
+                { 
+                  label: "OK", 
+                  type: "confirm", 
+                  onClick: () => setAlert(null) 
+                }
+              ]
             }
           />
         )}

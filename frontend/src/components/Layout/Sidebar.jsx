@@ -82,7 +82,7 @@ const Sidebar = () => {
         <img
           src="/april.png"
           alt="Logo"
-          className="w-32 h-auto drop-shadow-lg transition-transform duration-300 hover:scale-[1.03] cursor-pointer"
+          className="w-32 h-auto drop-shadow-lg transition-transform duration-300 hover:scale-[1.03] cursor-pointer will-change-transform"
         />
       </div>
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import axios from "axios";
 import useSWR, { useSWRConfig } from "swr";
 import {
@@ -9,43 +9,89 @@ import {
 import { IoTrashOutline, IoPencilOutline } from "react-icons/io5";
 import { FiUser } from "react-icons/fi";
 import AddITBP from "./AddITBP";
-import EditITBP from "./EditITBP"; // ✅ Modal edit
+import EditITBP from "./EditITBP";
 import Alert from "../Alert";
 
-const ITBPList = () => {
-  const { mutate } = useSWRConfig();
-  const [search, setSearch] = useState("");
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editId, setEditId] = useState(null); // ✅ Tambah state edit modal
+// HOOKS REUSABLE
+const useAlert = () => {
   const [alert, setAlert] = useState(null);
-  const [sortConfig, setSortConfig] = useState({ key: "SAP", direction: "asc" });
 
-  // ✅ Hanya ambil user dengan role ITBP
-  const fetcher = async () =>
-    (await axios.get("http://localhost:5000/users?role=ITBP")).data;
-
-  const { data: itbps, isLoading } = useSWR("itbp", fetcher);
-
-  if (isLoading)
-    return <h2 className="text-center mt-10 text-gray-600">Loading...</h2>;
-
-  const showAlert = (message, type = "success") => {
+  const showAlert = useCallback((message, type = "success", duration = 3000) => {
     setAlert({ message, type });
-    setTimeout(() => setAlert(null), 3000);
-  };
+    setTimeout(() => setAlert(null), duration);
+  }, []);
 
-  const showConfirm = (message, onConfirm) => {
+  const showConfirm = useCallback((message, onConfirm, onCancel = null) => {
     setAlert({
       message,
       type: "confirm",
-      onConfirm: () => {
-        onConfirm();
-        setAlert(null);
-      },
+      actions: [
+        { 
+          label: "Cancel", 
+          type: "cancel", 
+          onClick: () => {
+            onCancel?.();
+            setAlert(null);
+          }
+        },
+        {
+          label: "Confirm",
+          type: "confirm",
+          onClick: () => {
+            onConfirm();
+            setAlert(null);
+          },
+        },
+      ],
     });
-  };
+  }, []);
 
-  const deleteITBP = (itbp) => {
+  return { alert, setAlert, showAlert, showConfirm };
+};
+
+const useSorting = (initialKey = "SAP", initialDirection = "asc") => {
+  const [sortConfig, setSortConfig] = useState({ 
+    key: initialKey, 
+    direction: initialDirection 
+  });
+
+  const handleSort = useCallback((key) => {
+    setSortConfig((prev) => {
+      if (prev.key === key) {
+        return { 
+          key, 
+          direction: prev.direction === "asc" ? "desc" : "asc" 
+        };
+      }
+      return { key, direction: "asc" };
+    });
+  }, []);
+
+  const renderSortIcon = useCallback((key) => {
+    const iconClass = "inline ml-1 text-lg text-blue-300";
+    if (sortConfig.key !== key) return <MdOutlineSort className={iconClass} />;
+    
+    return sortConfig.direction === "asc" ? (
+      <MdOutlineArrowDropUp className={iconClass} />
+    ) : (
+      <MdOutlineArrowDropDown className={iconClass} />
+    );
+  }, [sortConfig]);
+
+  return { sortConfig, handleSort, renderSortIcon };
+};
+
+const useITBPData = () => {
+  const { mutate } = useSWRConfig();
+  
+  const fetcher = useCallback(async () => {
+    const response = await axios.get("http://localhost:5000/users?role=ITBP");
+    return response.data;
+  }, []);
+
+  const { data: itbps = [], isLoading, error } = useSWR("itbp", fetcher);
+
+  const deleteITBP = useCallback(async (itbp, showAlert, showConfirm) => {
     if (itbp.totalProjects > 0) {
       showAlert("Cannot delete ITBP who already has projects", "error");
       return;
@@ -61,25 +107,114 @@ const ITBPList = () => {
         showAlert("Failed to delete ITBP", "error");
       }
     });
-  };
+  }, [mutate]);
 
-  const handleSort = (key) => {
-    setSortConfig((prev) => {
-      if (prev.key === key) {
-        return { key, direction: prev.direction === "asc" ? "desc" : "asc" };
-      }
-      return { key, direction: "asc" };
-    });
-  };
+  return { itbps, isLoading, error, deleteITBP };
+};
 
-  const sortedITBP = [...itbps]
-    .filter(
-      (i) =>
-        i.name.toLowerCase().includes(search.toLowerCase()) ||
-        i.username?.toLowerCase().includes(search.toLowerCase()) ||
-        i.SAP?.toString().includes(search)
-    )
-    .sort((a, b) => {
+// KOMPONEN REUSABLE
+const TableHeader = React.memo(({ columns, sortConfig, onSort, renderSortIcon }) => (
+  <thead>
+    <tr>
+      {columns.map((col) => (
+        <th
+          key={col.key}
+          onClick={() => col.sortable !== false && onSort(col.key)}
+          className={`text-left px-2 py-1 font-semibold text-white bg-blue-600 ${
+            col.sortable === false 
+              ? "text-center cursor-default" 
+              : "cursor-pointer"
+          } select-none`}
+        >
+          <div className="flex items-center gap-1">
+            <span>{col.label}</span>
+            {col.sortable !== false && renderSortIcon(col.key)}
+          </div>
+        </th>
+      ))}
+    </tr>
+  </thead>
+));
+
+const TableRow = React.memo(({ itbp, onEdit, onDelete }) => (
+  <tr key={itbp.SAP} className="hover:bg-blue-50 transition-colors">
+    <td className="px-2 py-1 border-b border-gray-200">{itbp.SAP}</td>
+    <td className="px-2 py-1 border-b border-gray-200">{itbp.name}</td>
+    <td className="px-2 py-1 border-b border-gray-200">{itbp.username}</td>
+    <td className="px-2 py-1 border-b border-gray-200">
+      {itbp.position
+        ? itbp.position.charAt(0).toUpperCase() +
+          itbp.position.slice(1).toLowerCase()
+        : ""}
+    </td>
+    <td className="px-2 py-1 border-b border-gray-200">
+      {itbp.totalProjects ?? 0}
+    </td>
+    <td className="px-2 py-1 border-b border-gray-200 text-left">
+      <div className="flex justify-left gap-1">
+        <button
+          onClick={() => onEdit(itbp.SAP)}
+          className="bg-blue-500 hover:bg-blue-600 text-white p-1 rounded-lg flex items-center justify-center text-[0.7rem] w-6 h-6 transition-colors shadow-sm"
+          aria-label={`Edit ${itbp.name}`}
+        >
+          <IoPencilOutline size={14} />
+        </button>
+        <button
+          onClick={() => onDelete(itbp)}
+          className="bg-red-500 hover:bg-red-600 text-white p-1 rounded-lg flex items-center justify-center text-[0.7rem] w-6 h-6 transition-colors shadow-sm"
+          aria-label={`Delete ${itbp.name}`}
+        >
+          <IoTrashOutline size={14} />
+        </button>
+      </div>
+    </td>
+  </tr>
+));
+
+const EmptyState = () => (
+  <tr>
+    <td colSpan={6} className="text-center py-2 text-gray-400 italic">
+      No ITBP found
+    </td>
+  </tr>
+);
+
+const LoadingState = () => (
+  <div className="text-center mt-10 text-gray-600">Loading...</div>
+);
+
+const ITBPList = () => {
+  // STATE
+  const [search, setSearch] = useState("");
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editId, setEditId] = useState(null);
+
+  // HOOKS - PERBAIKAN: tambahkan setAlert ke destructuring
+  const { alert, setAlert, showAlert, showConfirm } = useAlert(); // ✅ setAlert sekarang didefinisikan
+  const { sortConfig, handleSort, renderSortIcon } = useSorting();
+  const { itbps, isLoading, deleteITBP } = useITBPData();
+
+  // KONFIGURASI TABEL
+  const columns = useMemo(() => [
+    { key: "SAP", label: "SAP", sortable: true },
+    { key: "name", label: "Name", sortable: true },
+    { key: "username", label: "Username", sortable: true },
+    { key: "position", label: "Position", sortable: true },
+    { key: "totalProjects", label: "Project", sortable: true },
+    { key: "action", label: "Action", sortable: false },
+  ], []);
+
+  // FUNGSI UTILITAS
+  const filteredAndSortedITBP = useMemo(() => {
+    if (!itbps) return [];
+
+    const filtered = itbps.filter((i) =>
+      i.name.toLowerCase().includes(search.toLowerCase()) ||
+      i.username?.toLowerCase().includes(search.toLowerCase()) ||
+      i.SAP?.toString().includes(search)
+    );
+
+    return [...filtered].sort((a, b) => {
       const { key, direction } = sortConfig;
       const order = direction === "asc" ? 1 : -1;
 
@@ -94,32 +229,37 @@ const ITBPList = () => {
         order
       );
     });
+  }, [itbps, search, sortConfig]);
 
-  const renderSortIcon = (key) => {
-    const iconClass = "inline ml-1 text-lg text-blue-300";
-    if (sortConfig.key !== key) return <MdOutlineSort className={iconClass} />;
-    return sortConfig.direction === "asc" ? (
-      <MdOutlineArrowDropUp className={iconClass} />
-    ) : (
-      <MdOutlineArrowDropDown className={iconClass} />
-    );
-  };
+  const handleDelete = useCallback((itbp) => {
+    deleteITBP(itbp, showAlert, showConfirm);
+  }, [deleteITBP, showAlert, showConfirm]);
 
-  const columns = [
-    { key: "SAP", label: "SAP" },
-    { key: "name", label: "Name" },
-    { key: "username", label: "Username" },
-    { key: "position", label: "Position" },
-    { key: "totalProjects", label: "Project" },
-    { key: "action", label: "Action" },
-  ];
+  const handleEdit = useCallback((id) => {
+    setEditId(id);
+  }, []);
+
+  const handleAddSuccess = useCallback(async () => {
+    setShowAddModal(false);
+    showAlert("ITBP added successfully", "success");
+  }, [showAlert]);
+
+  const handleEditSuccess = useCallback(async () => {
+    setEditId(null);
+    showAlert("ITBP updated successfully", "success");
+  }, [showAlert]);
+
+  // RENDER
+  if (isLoading) return <LoadingState />;
 
   return (
     <div className="p-6 min-h-screen font-sans text-[0.7rem]">
+      {/* HEADER */}
       <h2 className="flex items-center gap-2 font-bold text-sm mb-4 text-gray-800">
         <FiUser className="text-blue-600" size={18} /> ITBP DATA
       </h2>
 
+      {/* STATS CARD */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
         <div className="bg-white p-3 rounded-xl shadow flex justify-between items-center hover:shadow-lg transition-shadow">
           <div>
@@ -134,6 +274,7 @@ const ITBPList = () => {
         </div>
       </div>
 
+      {/* SEARCH & ACTIONS */}
       <div className="flex justify-end gap-2 mb-3 flex-wrap">
         <input
           type="text"
@@ -150,113 +291,63 @@ const ITBPList = () => {
         </button>
       </div>
 
+      {/* TABLE */}
       <div className="bg-white rounded-xl shadow-md overflow-x-auto">
         <table className="table-fixed w-full border-collapse text-[0.65rem]">
-          <thead>
-            <tr>
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  onClick={() => col.key !== "action" && handleSort(col.key)}
-                  className={`text-left px-2 py-1 font-semibold text-white bg-blue-600 ${
-                    col.key === "action"
-                      ? "text-center cursor-default"
-                      : "cursor-pointer"
-                  } select-none`}
-                >
-                  <div className="flex items-center gap-1">
-                    <span>{col.label}</span>
-                    {col.key !== "action" && renderSortIcon(col.key)}
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
+          <TableHeader
+            columns={columns}
+            sortConfig={sortConfig}
+            onSort={handleSort}
+            renderSortIcon={renderSortIcon}
+          />
           <tbody>
-            {sortedITBP.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="text-center py-2 text-gray-400 italic">
-                  No ITBP found
-                </td>
-              </tr>
+            {filteredAndSortedITBP.length === 0 ? (
+              <EmptyState />
             ) : (
-              sortedITBP.map((i) => (
-                <tr key={i.SAP} className="hover:bg-blue-50 transition-colors">
-                  <td className="px-2 py-1 border-b border-gray-200">{i.SAP}</td>
-                  <td className="px-2 py-1 border-b border-gray-200">{i.name}</td>
-                  <td className="px-2 py-1 border-b border-gray-200">{i.username}</td>
-                  <td className="px-2 py-1 border-b border-gray-200">
-                    {i.position
-                      ? i.position.charAt(0).toUpperCase() +
-                        i.position.slice(1).toLowerCase()
-                      : ""}
-                  </td>
-                  <td className="px-2 py-1 border-b border-gray-200">
-                    {i.totalProjects ?? 0}
-                  </td>
-                  <td className="px-2 py-1 border-b border-gray-200 text-left flex justify-left gap-1">
-                    {/* 🔹 Edit button */}
-                    <button
-                      onClick={() => setEditId(i.SAP)}
-                      className="bg-blue-500 hover:bg-blue-600 text-white p-1 rounded-lg flex items-center justify-center text-[0.7rem] w-6 h-6 transition-colors shadow-sm"
-                    >
-                      <IoPencilOutline size={14} />
-                    </button>
-
-                    {/* 🔹 Delete button */}
-                    <button
-                      onClick={() => deleteITBP(i)}
-                      className="bg-red-500 hover:bg-red-600 text-white p-1 rounded-lg flex items-center justify-center text-[0.7rem] w-6 h-6 transition-colors shadow-sm"
-                    >
-                      <IoTrashOutline size={14} />
-                    </button>
-                  </td>
-                </tr>
+              filteredAndSortedITBP.map((itbp) => (
+                <TableRow
+                  key={itbp.SAP}
+                  itbp={itbp}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                />
               ))
             )}
           </tbody>
         </table>
       </div>
 
-      {/* 🔹 Alert */}
+      {/* ALERT */}
       {alert && (
         <Alert
           message={alert.message}
           type={alert.type}
-          onClose={() => setAlert(null)}
+          onClose={() => alert.type !== "confirm" && setAlert(null)} // ✅ setAlert sekarang tersedia
           actions={
             alert.type === "confirm"
-              ? [
-                  { label: "Cancel", type: "cancel", onClick: () => setAlert(null) },
-                  { label: "Confirm", type: "confirm", onClick: alert.onConfirm },
-                ]
-              : [{ label: "OK", type: "confirm", onClick: () => setAlert(null) }]
+              ? alert.actions
+              : [{ 
+                  label: "OK", 
+                  type: "confirm", 
+                  onClick: () => setAlert(null) // ✅ setAlert sekarang tersedia
+                }]
           }
         />
       )}
 
-      {/* 🔹 Add Modal */}
+      {/* MODALS */}
       {showAddModal && (
         <AddITBP
           onClose={() => setShowAddModal(false)}
-          onSave={async () => {
-            await mutate("itbp");
-            setShowAddModal(false);
-            showAlert("ITBP added successfully", "success");
-          }}
+          onSave={handleAddSuccess}
         />
       )}
 
-      {/* 🔹 Edit Modal */}
       {editId && (
         <EditITBP
           SAP={editId}
           onClose={() => setEditId(null)}
-          onSave={async () => {
-            await mutate("itbp");
-            setEditId(null);
-            showAlert("ITBP updated successfully", "success");
-          }}
+          onSave={handleEditSuccess}
         />
       )}
     </div>
