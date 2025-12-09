@@ -12,6 +12,21 @@ import AddUser from "./AddUser";
 import EditUser from "./EditUser";
 import Alert from "../Alert";
 
+const API_URL = "http://localhost:5000/users";
+const specialRoles = ["ITBP", "ITGA", "SAP"];
+
+const formatRoleName = (role) => {
+  if (!role) return "-";
+  const upper = role.toUpperCase();
+  return specialRoles.includes(upper)
+    ? upper
+    : role
+        .toLowerCase()
+        .split("_")
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
+};
+
 const UserList = () => {
   const { mutate } = useSWRConfig();
   const [search, setSearch] = useState("");
@@ -20,18 +35,14 @@ const UserList = () => {
   const [alert, setAlert] = useState(null);
   const [sortConfig, setSortConfig] = useState({ key: "SAP", direction: "asc" });
 
-  // 🔹 Filter dropdown states
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [positionFilter, setPositionFilter] = useState("ALL");
   const [tempRole, setTempRole] = useState("ALL");
   const [tempPosition, setTempPosition] = useState("ALL");
 
-  const fetcher = async () => (await axios.get("http://localhost:5000/users")).data;
+  const fetcher = async () => (await axios.get(API_URL)).data;
   const { data: users, isLoading } = useSWR("users", fetcher);
-
-  if (isLoading)
-    return <h2 className="text-center mt-10 text-gray-600">Loading...</h2>;
 
   const showAlert = (message, type = "success") => {
     setAlert({ message, type });
@@ -49,44 +60,34 @@ const UserList = () => {
     });
   };
 
-const deleteUser = (user) => {
-  // 🔒 Cegah hapus kalau user masih punya project atau task aktif
-  if (user.totalProjects > 0 || user.totalTasks > 0) {
-    showAlert(
-      "Cannot delete user who still has active projects or tasks",
-      "error"
-    );
-    return;
-  }
-
-  // 🔹 Konfirmasi hapus user
-  showConfirm("Are you sure you want to delete this user?", async () => {
-    try {
-      await axios.delete(`http://localhost:5000/users/${user.SAP}`);
-      mutate("users");
-      showAlert("User deleted successfully", "success");
-    } catch (err) {
-      console.error(err);
-      showAlert("Failed to delete user", "error");
+  const deleteUser = ({ SAP, totalProjects, totalTasks }) => {
+    if (totalProjects > 0 || totalTasks > 0) {
+      return showAlert(
+        "Cannot delete user who still has active projects or tasks",
+        "error"
+      );
     }
-  });
-};
 
-
-  const handleSort = (key) => {
-    setSortConfig((prev) => {
-      if (prev.key === key) {
-        return { key, direction: prev.direction === "asc" ? "desc" : "asc" };
+    showConfirm("Are you sure you want to delete this user?", async () => {
+      try {
+        await axios.delete(`${API_URL}/${SAP}`);
+        mutate("users");
+        showAlert("User deleted successfully", "success");
+      } catch {
+        showAlert("Failed to delete user", "error");
       }
-      return { key, direction: "asc" };
     });
   };
 
-  const openFilter = () => {
-    setTempRole(roleFilter);
-    setTempPosition(positionFilter);
-    setShowFilterDropdown(true);
+  const updateFilterState = (role, position, active = false) => {
+    setTempRole(role);
+    setTempPosition(position);
+    setShowFilterDropdown(active);
   };
+
+  const clearFilter = () =>
+    updateFilterState("ALL", "ALL", false) ||
+    (setRoleFilter("ALL"), setPositionFilter("ALL"));
 
   const applyFilter = () => {
     setRoleFilter(tempRole);
@@ -94,58 +95,59 @@ const deleteUser = (user) => {
     setShowFilterDropdown(false);
   };
 
-  const clearFilter = () => {
-    setTempRole("ALL");
-    setTempPosition("ALL");
-    setRoleFilter("ALL");
-    setPositionFilter("ALL");
-    setShowFilterDropdown(false);
-  };
+  const handleSort = (key) =>
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+    }));
 
-  // 🔹 Filtering + sorting
-  const filteredUsers = users.filter((u) => {
-    const term = search.toLowerCase();
-    const matchSearch =
-      u.name?.toLowerCase().includes(term) ||
-      u.username?.toLowerCase().includes(term) ||
-      u.SAP?.toString().includes(term);
+  const filterValue = search.toLowerCase();
+  const filteredUsers = users?.filter(({ SAP, name, username, role, position }) => {
+    const inSearch =
+      name?.toLowerCase().includes(filterValue) ||
+      username?.toLowerCase().includes(filterValue) ||
+      SAP?.toString().includes(filterValue);
 
-    const matchRole =
+    const inRole =
       roleFilter === "ALL" ||
-      u.role?.role?.toLowerCase() === roleFilter.toLowerCase();
+      role?.role?.toLowerCase() === roleFilter.toLowerCase();
 
-    const matchPosition =
+    const inPosition =
       positionFilter === "ALL" ||
-      u.position?.position?.toLowerCase() === positionFilter.toLowerCase();
+      position?.position?.toLowerCase() === positionFilter.toLowerCase();
 
-    return matchSearch && matchRole && matchPosition;
+    return inSearch && inRole && inPosition;
   });
 
-  const sortedUsers = [...filteredUsers].sort((a, b) => {
+  const sortedUsers = [...(filteredUsers ?? [])].sort((a, b) => {
     const { key, direction } = sortConfig;
+    const valA = a[key] ?? "";
+    const valB = b[key] ?? "";
     const order = direction === "asc" ? 1 : -1;
 
-    let valA = a[key] ?? "";
-    let valB = b[key] ?? "";
-
-    if (typeof valA === "number" && typeof valB === "number") {
-      return (valA - valB) * order;
-    }
-    return (
-      valA.toString().toLowerCase().localeCompare(valB.toString().toLowerCase()) *
-      order
-    );
+    return typeof valA === "number" && typeof valB === "number"
+      ? (valA - valB) * order
+      : valA.toString().localeCompare(valB.toString()) * order;
   });
 
-  const renderSortIcon = (key) => {
-    const iconClass = "inline ml-1 text-lg text-blue-300";
-    if (sortConfig.key !== key) return <MdOutlineSort className={iconClass} />;
-    return sortConfig.direction === "asc" ? (
-      <MdOutlineArrowDropUp className={iconClass} />
+  const renderSortIcon = (key) =>
+    sortConfig.key !== key ? (
+      <MdOutlineSort className="inline ml-1 text-lg text-blue-300" />
+    ) : sortConfig.direction === "asc" ? (
+      <MdOutlineArrowDropUp className="inline ml-1 text-lg text-blue-300" />
     ) : (
-      <MdOutlineArrowDropDown className={iconClass} />
+      <MdOutlineArrowDropDown className="inline ml-1 text-lg text-blue-300" />
     );
-  };
+
+  if (isLoading)
+    return (
+      <h2 className="text-center mt-10 text-gray-600">
+        Loading...
+      </h2>
+    );
+
+  const uniqueRoles = ["ALL", ...new Set(users.map((u) => u.role?.role).filter(Boolean))];
+  const uniquePositions = ["ALL", ...new Set(users.map((u) => u.position?.position).filter(Boolean))];
 
   const columns = [
     { key: "SAP", label: "SAP" },
@@ -158,105 +160,68 @@ const deleteUser = (user) => {
     { key: "action", label: "Action" },
   ];
 
-  const uniqueRoles = [
-    "ALL",
-    ...new Set(users.map((u) => u.role?.role).filter(Boolean)),
-  ];
-  const uniquePositions = [
-    "ALL",
-    ...new Set(users.map((u) => u.position?.position).filter(Boolean)),
-  ];
-
   return (
     <div className="p-6 min-h-screen font-sans text-[0.7rem]">
       <h2 className="flex items-center gap-2 font-bold text-sm mb-4 text-gray-800">
         <FiUsers className="text-blue-600" size={18} /> USER MANAGEMENT
       </h2>
 
-      {/* Total Users berubah sesuai filter */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
-        <div className="bg-white p-3 rounded-xl shadow flex justify-between items-center hover:shadow-lg transition-shadow">
+        <div className="bg-white p-3 rounded-xl shadow flex justify-between items-center">
           <div>
             <div className="text-gray-500 text-[0.65rem]">Total Users</div>
             <div className="text-[0.8rem] font-bold text-gray-800">
-              {filteredUsers.length}
+              {filteredUsers?.length ?? 0}
             </div>
           </div>
-          <div className="bg-blue-600 p-2.5 rounded-full text-white flex items-center justify-center text-[0.8rem]">
+          <div className="bg-blue-600 p-2.5 rounded-full text-white">
             <FiUsers size={16} />
           </div>
         </div>
       </div>
 
-      {/* Filter & Search */}
       <div className="flex justify-between items-center gap-2 mb-3 relative">
         <div className="relative">
           <button
             onClick={() =>
-              showFilterDropdown ? setShowFilterDropdown(false) : openFilter()
+              showFilterDropdown
+                ? setShowFilterDropdown(false)
+                : updateFilterState(roleFilter, positionFilter, true)
             }
-            className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-[0.65rem] flex items-center gap-2 transition-colors shadow-md"
+            className="bg-purple-600 text-white px-3 py-1.5 rounded-lg text-[0.65rem] flex items-center gap-2 shadow-md"
           >
             <IoFilterOutline size={14} /> Filter
           </button>
 
           {showFilterDropdown && (
-            <div className="absolute left-0 mt-2 w-64 bg-white shadow-xl rounded-xl border border-gray-200 z-50 p-3">
-              <div className="mb-2">
-                <label className="text-[0.65rem] block mb-1 text-gray-600">
-                  Role
-                </label>
-                <select
-                  value={tempRole}
-                  onChange={(e) => setTempRole(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg text-[0.65rem] focus:outline-none focus:ring-2 focus:ring-blue-400"
-                >
-                  {uniqueRoles.map((r) => (
-                    <option key={r} value={r}>
-                      {r === "ALL"
-                        ? "All Roles"
-                        : ["ITBP", "ITGA", "SAP"].includes(r.toUpperCase())
-                        ? r.toUpperCase()
-                        : r
-                            .toLowerCase()
-                            .split("_")
-                            .map(
-                              (w) => w.charAt(0).toUpperCase() + w.slice(1)
-                            )
-                            .join(" ")}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="mb-2">
-                <label className="text-[0.65rem] block mb-1 text-gray-600">
-                  Position
-                </label>
-                <select
-                  value={tempPosition}
-                  onChange={(e) => setTempPosition(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg text-[0.65rem] focus:outline-none focus:ring-2 focus:ring-blue-400"
-                >
-                  {uniquePositions.map((p) => (
-                    <option key={p} value={p}>
-                      {p === "ALL" ? "All Positions" : p}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="absolute left-0 mt-2 w-64 bg-white shadow-xl rounded-xl border z-50 p-3">
+              {[{ label: "Role", val: tempRole, set: setTempRole, list: uniqueRoles },
+                { label: "Position", val: tempPosition, set: setTempPosition, list: uniquePositions }].map(
+                ({ label, val, set, list }) => (
+                  <div className="mb-2" key={label}>
+                    <label className="text-[0.65rem] block mb-1 text-gray-600">
+                      {label}
+                    </label>
+                    <select
+                      value={val}
+                      onChange={(e) => set(e.target.value)}
+                      className="w-full p-2 border rounded-lg text-[0.65rem]"
+                    >
+                      {list.map((v) => (
+                        <option key={v} value={v}>
+                          {v === "ALL" ? `All ${label}s` : v}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )
+              )}
 
               <div className="flex justify-end gap-2 mt-3">
-                <button
-                  onClick={clearFilter}
-                  className="bg-gray-300 text-black px-3 py-1 rounded-lg text-[0.65rem] hover:bg-gray-400 transition-colors"
-                >
+                <button onClick={clearFilter} className="bg-gray-300 px-3 py-1 rounded-lg text-[0.65rem]">
                   Clear
                 </button>
-                <button
-                  onClick={applyFilter}
-                  className="bg-blue-500 text-white px-3 py-1 rounded-lg text-[0.65rem] hover:bg-blue-600 transition-colors"
-                >
+                <button onClick={applyFilter} className="bg-blue-500 text-white px-3 py-1 rounded-lg text-[0.65rem]">
                   Apply
                 </button>
               </div>
@@ -270,40 +235,37 @@ const deleteUser = (user) => {
             placeholder="Search..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-1 text-[0.65rem] w-44 focus:outline-none focus:ring-1 focus:ring-blue-400"
+            className="border rounded-md px-3 py-1 text-[0.65rem] w-44"
           />
           <button
             onClick={() => setShowAddModal(true)}
-            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg text-[0.65rem] flex items-center gap-1 cursor-pointer transition-colors shadow-md"
+            className="bg-green-500 text-white px-3 py-1.5 rounded-lg text-[0.65rem] shadow-md"
           >
             Add User
           </button>
         </div>
       </div>
 
-      {/* Table */}
       <div className="bg-white rounded-xl shadow-md overflow-x-auto">
-        <table className="table-fixed w-full border-collapse text-[0.65rem]">
+        <table className="table-fixed w-full text-[0.65rem]">
           <thead>
             <tr>
-              {columns.map((col) => (
+              {columns.map(({ key, label }) => (
                 <th
-                  key={col.key}
-                  onClick={() => col.key !== "action" && handleSort(col.key)}
-                  className={`text-left px-2 py-1 font-semibold text-white bg-blue-600 ${
-                    col.key === "action"
-                      ? "text-center cursor-default"
-                      : "cursor-pointer"
-                  } select-none`}
+                  key={key}
+                  onClick={() => key !== "action" && handleSort(key)}
+                  className={`${key === "action" ? "cursor-default" : "cursor-pointer"}
+                  px-2 py-1 font-semibold text-white bg-blue-600`}
                 >
                   <div className="flex items-center gap-1">
-                    <span>{col.label}</span>
-                    {col.key !== "action" && renderSortIcon(col.key)}
+                    <span>{label}</span>
+                    {key !== "action" && renderSortIcon(key)}
                   </div>
                 </th>
               ))}
             </tr>
           </thead>
+
           <tbody>
             {sortedUsers.length === 0 ? (
               <tr>
@@ -313,45 +275,24 @@ const deleteUser = (user) => {
               </tr>
             ) : (
               sortedUsers.map((u) => (
-                <tr key={u.SAP} className="hover:bg-blue-50 transition-colors">
-                  <td className="px-2 py-1 border-b border-gray-200">{u.SAP}</td>
-                  <td className="px-2 py-1 border-b border-gray-200">{u.name}</td>
-                  <td className="px-2 py-1 border-b border-gray-200">{u.username}</td>
-                  <td className="px-2 py-1 border-b border-gray-200">
-                    {u.role?.role
-                      ? ["ITBP", "ITGA", "SAP"].includes(
-                          u.role.role.toUpperCase()
-                        )
-                        ? u.role.role.toUpperCase()
-                        : u.role.role
-                            .toLowerCase()
-                            .split("_")
-                            .map(
-                              (word) =>
-                                word.charAt(0).toUpperCase() + word.slice(1)
-                            )
-                            .join(" ")
-                      : "-"}
-                  </td>
-                  <td className="px-2 py-1 border-b border-gray-200">
-                    {u.position?.position || "-"}
-                  </td>
-                  <td className="px-2 py-1 border-b border-gray-200 text-center">
-                    {u.totalProjects ?? 0}
-                  </td>
-                  <td className="px-2 py-1 border-b border-gray-200 text-center">
-                    {u.totalTasks ?? 0}
-                  </td>
-                  <td className="px-2 py-1 border-b border-gray-200 text-left flex gap-1">
+                <tr key={u.SAP} className="hover:bg-blue-50">
+                  <td className="px-2 py-1 border-b">{u.SAP}</td>
+                  <td className="px-2 py-1 border-b">{u.name}</td>
+                  <td className="px-2 py-1 border-b">{u.username}</td>
+                  <td className="px-2 py-1 border-b">{formatRoleName(u.role?.role)}</td>
+                  <td className="px-2 py-1 border-b">{u.position?.position ?? "-"}</td>
+                  <td className="px-2 py-1 border-b text-center">{u.totalProjects ?? 0}</td>
+                  <td className="px-2 py-1 border-b text-center">{u.totalTasks ?? 0}</td>
+                  <td className="px-2 py-1 border-b flex gap-1">
                     <button
                       onClick={() => setEditId(u.SAP)}
-                      className="bg-blue-500 hover:bg-blue-600 text-white p-1 rounded-lg flex items-center justify-center text-[0.7rem] w-6 h-6 transition-colors shadow-sm"
+                      className="bg-blue-500 text-white p-1 rounded-lg w-6 h-6 flex items-center justify-center"
                     >
                       <IoPencilOutline size={14} />
                     </button>
                     <button
                       onClick={() => deleteUser(u)}
-                      className="bg-red-500 hover:bg-red-600 text-white p-1 rounded-lg flex items-center justify-center text-[0.7rem] w-6 h-6 transition-colors shadow-sm"
+                      className="bg-red-500 text-white p-1 rounded-lg w-6 h-6 flex items-center justify-center"
                     >
                       <IoTrashOutline size={14} />
                     </button>
@@ -363,7 +304,6 @@ const deleteUser = (user) => {
         </table>
       </div>
 
-      {/* Alert */}
       {alert && (
         <Alert
           message={alert.message}
@@ -380,19 +320,17 @@ const deleteUser = (user) => {
         />
       )}
 
-      {/* Add Modal */}
       {showAddModal && (
         <AddUser
           onClose={() => setShowAddModal(false)}
           onSave={async () => {
             await mutate("users");
             setShowAddModal(false);
-            showAlert("User added successfully", "success");
+            showAlert("User added successfully");
           }}
         />
       )}
 
-      {/* Edit Modal */}
       {editId && (
         <EditUser
           SAP={editId}
@@ -400,7 +338,7 @@ const deleteUser = (user) => {
           onSave={async () => {
             await mutate("users");
             setEditId(null);
-            showAlert("User updated successfully", "success");
+            showAlert("User updated successfully");
           }}
         />
       )}

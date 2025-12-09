@@ -4,33 +4,36 @@ import { FaTimes, FaSave, FaEye, FaEyeSlash } from "react-icons/fa";
 import Alert from "../Alert";
 
 const EditEngineer = ({ SAP, onClose, onSave }) => {
-  const [sap, setSAP] = useState("");
-  const [name, setName] = useState("");
-  const [username, setUsername] = useState("");
-  const [oldPassword, setOldPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [position, setPosition] = useState("");
-  const [role, setRole] = useState("");
+  const [formData, setFormData] = useState({
+    SAP: "",
+    name: "",
+    username: "",
+    position: "",
+    role: "",
+    oldPassword: "",
+    newPassword: "",
+  });
+
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [showOldPass, setShowOldPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
   const [alert, setAlert] = useState(null);
 
-  const primaryBlue = "bg-blue-600";
-  const primaryGreen = "bg-green-600 hover:bg-green-700";
-
-  // ✅ Fetch user by SAP
+  // Fetch initial data
   useEffect(() => {
     if (!SAP) return;
     const fetchUser = async () => {
       try {
         const res = await axios.get(`http://localhost:5000/users/${SAP}`);
-        setSAP(res.data.SAP);
-        setName(res.data.name);
-        setUsername(res.data.username);
-        setPosition(res.data.position || "");
-        setRole(res.data.role || "");
+        setFormData((prev) => ({
+          ...prev,
+          SAP: res.data.SAP,
+          name: res.data.name,
+          username: res.data.username,
+          position: res.data.position || "",
+          role: res.data.role || "",
+        }));
       } catch (err) {
         console.error("Error fetching user:", err);
       }
@@ -38,70 +41,70 @@ const EditEngineer = ({ SAP, onClose, onSave }) => {
     fetchUser();
   }, [SAP]);
 
-  // ✅ Validation
+  const requiredFields = ["name", "username", "position", "role"];
+
   const validate = () => {
     const newErrors = {};
-    if (!sap) newErrors.sap = "SAP is required";
-    if (!name) newErrors.name = "Name is required";
-    if (!username) newErrors.username = "Username is required";
-    if (!position) newErrors.position = "Position is required";
-    if (!role) newErrors.role = "Role is required";
+    requiredFields.forEach((field) => {
+      if (!formData[field]) newErrors[field] = `${field} is required`;
+    });
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return !Object.keys(newErrors).length;
   };
 
-  const showError = (msg) => {
-    setAlert({ message: msg, type: "error" });
-    setTimeout(() => setAlert(null), 3000);
+  const triggerAlert = (message, type = "error", actions = null) => {
+    setAlert({ message, type, actions });
+    if (type === "error") {
+      setTimeout(() => setAlert(null), 3000);
+    }
   };
 
-  // ✅ Update user (pakai /users/:id + oldPassword/newPassword)
+  const handleChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // Submit update
   const updateUser = async (e) => {
     e.preventDefault();
     if (!validate()) {
-      showError("Please fill all required fields.");
+      triggerAlert("Please complete required fields");
       return;
     }
 
-    setAlert({
-      message: "Are you sure you want to update this engineer?",
-      type: "confirm",
-      actions: [
-        { label: "Cancel", type: "cancel", onClick: () => setAlert(null) },
-        {
-          label: "Confirm",
-          type: "confirm",
-          onClick: async () => {
-            setLoading(true);
-            try {
-              await axios.patch(`http://localhost:5000/users/${SAP}`, {
-                SAP: Number(sap),
-                name,
-                username,
-                position,
-                role,
-                oldPassword: oldPassword || undefined,
-                newPassword: newPassword || undefined,
-              });
+    triggerAlert("Are you sure you want to update this engineer?", "confirm", [
+      { label: "Cancel", type: "cancel", onClick: () => setAlert(null) },
+      {
+        label: "Confirm",
+        type: "confirm",
+        onClick: async () => {
+          setLoading(true);
+          try {
+            await axios.patch(`http://localhost:5000/users/${SAP}`, {
+              SAP: Number(formData.SAP),
+              name: formData.name,
+              username: formData.username,
+              position: formData.position,
+              role: formData.role,
+              oldPassword: formData.oldPassword || undefined,
+              newPassword: formData.newPassword || undefined,
+            });
 
-              setTimeout(() => {
-                setAlert(null);
-                if (onSave) onSave();
-                if (onClose) onClose();
-              }, 1000);
-            } catch (error) {
-              const msg =
-                error.response?.data?.msg ||
-                "Failed to update engineer, please try again!";
-              showError(msg);
-              console.error("Update engineer error:", msg);
-            } finally {
-              setLoading(false);
-            }
-          },
+            setTimeout(() => {
+              setAlert(null);
+              onSave?.();
+              onClose?.();
+            }, 1000);
+          } catch (error) {
+            const msg =
+              error.response?.data?.msg ||
+              "Failed to update engineer, please try again!";
+            triggerAlert(msg);
+          } finally {
+            setLoading(false);
+          }
         },
-      ],
-    });
+      },
+    ]);
   };
 
   const inputClass = (field) =>
@@ -111,162 +114,128 @@ const EditEngineer = ({ SAP, onClose, onSave }) => {
         : "border-gray-300 focus:border-blue-500"
     }`;
 
+  const Field = ({ label, field, type = "text", disabled = false, children }) => (
+    <div className="flex flex-col gap-1">
+      <label className="font-medium text-xs text-gray-700">{label}</label>
+      {children ? (
+        children
+      ) : (
+        <input
+          type={type}
+          disabled={disabled}
+          value={formData[field]}
+          onChange={(e) => handleChange(field, e.target.value)}
+          className={`${inputClass(field)} ${disabled ? "bg-gray-100 cursor-not-allowed text-gray-600" : ""}`}
+        />
+      )}
+      {errors[field] && (
+        <span className="text-red-500 text-xs">{errors[field]}</span>
+      )}
+    </div>
+  );
+
   return (
     <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4 font-sans backdrop-blur-sm">
       <div className="bg-white rounded-xl w-[500px] max-w-full shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div
-          className={`p-4 flex justify-between items-center text-white ${primaryBlue} border-b border-blue-700`}
-        >
-          <h3 className="text-sm font-bold tracking-wide">
-            FORM EDIT ENGINEER
-          </h3>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-full hover:bg-white/20 transition-colors text-white"
-          >
+        
+        {/* HEADER */}
+        <div className="p-4 flex justify-between items-center bg-blue-600 text-white border-b border-blue-700">
+          <h3 className="text-sm font-bold tracking-wide">FORM EDIT ENGINEER</h3>
+          <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors">
             <FaTimes className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Body */}
+        {/* BODY */}
         <form onSubmit={updateUser} className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* SAP */}
-            <div className="flex flex-col gap-1">
-              <label className="font-medium text-xs text-gray-700">SAP</label>
-              <input
-                type="number"
-                value={sap}
-                disabled
-                className="border border-gray-300 bg-gray-100 rounded-md px-2 py-1.5 w-full cursor-not-allowed text-gray-600"
-              />
-            </div>
 
-            {/* Name */}
-            <div className="flex flex-col gap-1">
-              <label className="font-medium text-xs text-gray-700">Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className={inputClass("name")}
-                placeholder="Full Name"
-              />
-            </div>
+            <Field label="SAP" field="SAP" type="number" disabled />
 
-            {/* Username */}
-            <div className="flex flex-col gap-1">
-              <label className="font-medium text-xs text-gray-700">
-                Username
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className={inputClass("username")}
-                placeholder="User login ID"
-              />
-            </div>
+            <Field label="Name" field="name" />
+            <Field label="Username" field="username" />
 
-            {/* Role */}
-            <div className="flex flex-col gap-1">
-              <label className="font-medium text-xs text-gray-700">Role</label>
+            {/* ROLE */}
+            <Field label="Role" field="role">
               <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className={
-                  inputClass("role") + " appearance-none cursor-pointer"
-                }
+                value={formData.role}
+                onChange={(e) => handleChange("role", e.target.value)}
+                className={inputClass("role") + " appearance-none cursor-pointer"}
               >
-                <option value="" disabled>
-                  Select Role
-                </option>
+                <option value="" disabled>Select Role</option>
                 <option value="ADMIN">Admin</option>
                 <option value="ITBP">ITBP</option>
                 <option value="ENGINEER">Engineer</option>
               </select>
-            </div>
+            </Field>
 
             {/* Old Password */}
-            <div className="flex flex-col gap-1 relative">
-              <label className="font-medium text-xs text-gray-700">
-                Old Password (optional)
-              </label>
+            <Field label="Old Password (optional)" field="oldPassword">
               <div className="relative">
                 <input
                   type={showOldPass ? "text" : "password"}
-                  value={oldPassword}
-                  onChange={(e) => setOldPassword(e.target.value)}
+                  value={formData.oldPassword}
+                  onChange={(e) => handleChange("oldPassword", e.target.value)}
                   className={inputClass("oldPassword")}
                   placeholder="Enter old password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowOldPass(!showOldPass)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600"
                 >
                   {showOldPass ? <FaEyeSlash /> : <FaEye />}
                 </button>
               </div>
-            </div>
+            </Field>
 
             {/* New Password */}
-            <div className="flex flex-col gap-1 relative">
-              <label className="font-medium text-xs text-gray-700">
-                New Password (optional)
-              </label>
+            <Field label="New Password (optional)" field="newPassword">
               <div className="relative">
                 <input
                   type={showNewPass ? "text" : "password"}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  value={formData.newPassword}
+                  onChange={(e) => handleChange("newPassword", e.target.value)}
                   className={inputClass("newPassword")}
                   placeholder="Leave blank to keep current"
                 />
                 <button
                   type="button"
                   onClick={() => setShowNewPass(!showNewPass)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600"
                 >
                   {showNewPass ? <FaEyeSlash /> : <FaEye />}
                 </button>
               </div>
-            </div>
+            </Field>
 
             {/* Position */}
-            <div className="flex flex-col gap-1 md:col-span-2">
-              <label className="font-medium text-xs text-gray-700">
-                Position
-              </label>
+            <Field label="Position" field="position" type="select">
               <select
-                value={position}
-                onChange={(e) => setPosition(e.target.value)}
-                className={
-                  inputClass("position") + " appearance-none cursor-pointer"
-                }
+                value={formData.position}
+                onChange={(e) => handleChange("position", e.target.value)}
+                className={inputClass("position") + " appearance-none cursor-pointer"}
               >
-                <option value="" disabled>
-                  Select Position
-                </option>
+                <option value="" disabled>Select Position</option>
                 <option value="BACKEND">Backend</option>
                 <option value="FRONTEND">Frontend</option>
                 <option value="FULLSTACK">Fullstack</option>
                 <option value="MOBILE">Mobile</option>
               </select>
-            </div>
+            </Field>
+
           </div>
 
-          {/* Button */}
+          {/* BUTTON */}
           <div className="flex justify-end pt-6 border-t mt-6">
             <button
               type="submit"
               disabled={loading}
               className={`${
-                loading ? "bg-gray-400 cursor-not-allowed" : primaryGreen
-              } text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-md transition-all duration-200`}
+                loading ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
+              } text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-md transition-all`}
             >
-              <FaSave className="w-4 h-4" />{" "}
+              <FaSave className="w-4 h-4" />
               {loading ? "Updating..." : "Save Changes"}
             </button>
           </div>

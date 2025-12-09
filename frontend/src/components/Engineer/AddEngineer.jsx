@@ -4,88 +4,80 @@ import { FaTimes, FaSave, FaEye, FaEyeSlash } from "react-icons/fa";
 import Alert from "../Alert";
 
 const AddEngineer = ({ onClose, onSave }) => {
-  const [SAP, setSAP] = useState("");
-  const [name, setName] = useState("");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [position, setPosition] = useState("");
+  const [formData, setFormData] = useState({
+    SAP: "",
+    name: "",
+    username: "",
+    password: "",
+    position: "",
+  });
+
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [alert, setAlert] = useState(null);
 
-  const primaryBlue = "bg-blue-600";
-  const primaryGreen = "bg-green-600 hover:bg-green-700";
+  const requiredFields = ["SAP", "name", "username", "password", "position"];
+
+  const handleChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   const validate = () => {
     const newErrors = {};
-    if (!SAP) newErrors.SAP = "SAP is required";
-    if (!name) newErrors.name = "Name is required";
-    if (!username) newErrors.username = "Username is required";
-    if (!password) newErrors.password = "Password is required";
-    if (!position) newErrors.position = "Position is required";
+    requiredFields.forEach((field) => {
+      if (!formData[field]) {
+        newErrors[field] = `${field} is required`;
+      }
+    });
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return !Object.keys(newErrors).length;
   };
 
-  const showError = (msg) => {
-    setAlert({ message: msg, type: "error" });
-    setTimeout(() => setAlert(null), 3000);
+  const triggerAlert = (message, type = "error", actions = null) => {
+    setAlert({ message, type, actions });
+    if (type === "error") {
+      setTimeout(() => setAlert(null), 3000);
+    }
   };
 
   const saveEngineer = async (e) => {
     e.preventDefault();
     if (!validate()) {
-      showError("Failed to add engineer because of missing fields");
+      triggerAlert("Failed to add engineer because of missing fields");
       return;
     }
 
-    // Konfirmasi sebelum simpan
-    setAlert({
-      message: "Are you sure you want to add this engineer?",
-      type: "confirm",
-      actions: [
-        {
-          label: "Cancel",
-          type: "cancel",
-          onClick: () => setAlert(null),
-        },
-        {
-          label: "Confirm",
-          type: "confirm",
-          onClick: async () => {
-            setLoading(true);
-            try {
-              // ✅ Sesuaikan endpoint ke createUser di backend
-              await axios.post("http://localhost:5000/users", {
-                SAP: Number(SAP),
-                name,
-                username,
-                password,
-                position,
-                role: "ENGINEER", // otomatis role ENGINEER
-              });
+    triggerAlert("Are you sure you want to add this engineer?", "confirm", [
+      { label: "Cancel", type: "cancel", onClick: () => setAlert(null) },
+      {
+        label: "Confirm",
+        type: "confirm",
+        onClick: async () => {
+          setLoading(true);
+          try {
+            await axios.post("http://localhost:5000/users", {
+              SAP: Number(formData.SAP),
+              ...formData,
+              role: "ENGINEER",
+            });
 
-              
-
-              setTimeout(() => {
-                setAlert(null);
-                if (onSave) onSave();
-                if (onClose) onClose();
-              }, 1500);
-            } catch (error) {
-              const msg =
-                error.response?.data?.msg ||
-                "Failed to add engineer, please try again!";
-              showError(msg);
-              console.error("Add engineer error:", msg);
-            } finally {
-              setLoading(false);
-            }
-          },
+            setTimeout(() => {
+              setAlert(null);
+              onSave?.();
+              onClose?.();
+            }, 1500);
+          } catch (error) {
+            const msg =
+              error.response?.data?.msg ||
+              "Failed to add engineer, please try again!";
+            triggerAlert(msg);
+          } finally {
+            setLoading(false);
+          }
         },
-      ],
-    });
+      },
+    ]);
   };
 
   const inputClass = (field) =>
@@ -95,13 +87,30 @@ const AddEngineer = ({ onClose, onSave }) => {
         : "border-gray-300 focus:border-blue-500"
     }`;
 
+  const Field = ({ label, field, type = "text", children }) => (
+    <div className="flex flex-col gap-1">
+      <label className="font-medium text-xs text-gray-700">{label}</label>
+      {children ? (
+        children
+      ) : (
+        <input
+          type={type}
+          value={formData[field]}
+          onChange={(e) => handleChange(field, e.target.value)}
+          className={inputClass(field)}
+        />
+      )}
+      {errors[field] && (
+        <span className="text-red-500 text-xs mt-0.5">{errors[field]}</span>
+      )}
+    </div>
+  );
+
   return (
     <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4 font-sans backdrop-blur-sm">
       <div className="bg-white rounded-xl w-[500px] max-w-full shadow-2xl overflow-hidden transition-all duration-300 transform scale-100">
-        {/* Header */}
-        <div
-          className={`p-4 flex justify-between items-center text-white ${primaryBlue} border-b border-blue-700`}
-        >
+        {/* HEADER */}
+        <div className="p-4 flex justify-between items-center bg-blue-600 text-white border-b border-blue-700">
           <h3 className="text-sm font-bold m-0 tracking-wide">
             FORM ADD NEW ENGINEER
           </h3>
@@ -114,72 +123,20 @@ const AddEngineer = ({ onClose, onSave }) => {
           </button>
         </div>
 
-        {/* Body */}
+        {/* BODY */}
         <form onSubmit={saveEngineer} className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* SAP */}
-            <div className="flex flex-col gap-1">
-              <label className="font-medium text-xs text-gray-700">SAP</label>
-              <input
-                type="number"
-                value={SAP}
-                onChange={(e) => setSAP(e.target.value)}
-                className={inputClass("SAP")}
-                placeholder="e.g., 10001"
-              />
-              {errors.SAP && (
-                <span className="text-red-500 text-xs mt-0.5">
-                  {errors.SAP}
-                </span>
-              )}
-            </div>
+            <Field label="SAP" field="SAP" type="number" />
+            <Field label="Name" field="name" />
+            <Field label="Username" field="username" />
 
-            {/* Name */}
-            <div className="flex flex-col gap-1">
-              <label className="font-medium text-xs text-gray-700">Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className={inputClass("name")}
-                placeholder="Full Name"
-              />
-              {errors.name && (
-                <span className="text-red-500 text-xs mt-0.5">
-                  {errors.name}
-                </span>
-              )}
-            </div>
-
-            {/* Username */}
-            <div className="flex flex-col gap-1">
-              <label className="font-medium text-xs text-gray-700">
-                Username
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className={inputClass("username")}
-                placeholder="User login ID"
-              />
-              {errors.username && (
-                <span className="text-red-500 text-xs mt-0.5">
-                  {errors.username}
-                </span>
-              )}
-            </div>
-
-            {/* Password */}
-            <div className="flex flex-col gap-1">
-              <label className="font-medium text-xs text-gray-700">
-                Password
-              </label>
+            {/* PASSWORD */}
+            <Field label="Password" field="password">
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={formData.password}
+                  onChange={(e) => handleChange("password", e.target.value)}
                   className={inputClass("password")}
                   placeholder="********"
                 />
@@ -195,24 +152,14 @@ const AddEngineer = ({ onClose, onSave }) => {
                   )}
                 </button>
               </div>
-              {errors.password && (
-                <span className="text-red-500 text-xs mt-0.5">
-                  {errors.password}
-                </span>
-              )}
-            </div>
+            </Field>
 
-            {/* Position */}
-            <div className="flex flex-col gap-1 md:col-span-2">
-              <label className="font-medium text-xs text-gray-700">
-                Position
-              </label>
+            {/* POSITION */}
+            <Field label="Position" field="position">
               <select
-                value={position}
-                onChange={(e) => setPosition(e.target.value)}
-                className={
-                  inputClass("position") + " appearance-none cursor-pointer"
-                }
+                value={formData.position}
+                onChange={(e) => handleChange("position", e.target.value)}
+                className={inputClass("position") + " appearance-none cursor-pointer"}
               >
                 <option value="" disabled>
                   Select Position
@@ -222,21 +169,18 @@ const AddEngineer = ({ onClose, onSave }) => {
                 <option value="FULLSTACK">Fullstack</option>
                 <option value="MOBILE">Mobile</option>
               </select>
-              {errors.position && (
-                <span className="text-red-500 text-xs mt-0.5">
-                  {errors.position}
-                </span>
-              )}
-            </div>
+            </Field>
           </div>
 
-          {/* Button */}
+          {/* BUTTON */}
           <div className="flex justify-end pt-6 border-t mt-6">
             <button
               type="submit"
               disabled={loading}
               className={`${
-                loading ? "bg-gray-400 cursor-not-allowed" : primaryGreen
+                loading
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-green-600 hover:bg-green-700"
               } text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-md transition-all duration-200 transform active:scale-[0.98] hover:shadow-lg`}
             >
               <FaSave className="w-4 h-4" />{" "}
@@ -252,11 +196,7 @@ const AddEngineer = ({ onClose, onSave }) => {
             type={alert.type}
             actions={
               alert.actions || [
-                {
-                  label: "OK",
-                  type: "confirm",
-                  onClick: () => setAlert(null),
-                },
+                { label: "OK", type: "confirm", onClick: () => setAlert(null) },
               ]
             }
           />
