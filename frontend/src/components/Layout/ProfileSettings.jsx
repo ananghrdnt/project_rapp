@@ -210,10 +210,13 @@ const ProfileSettings = ({ user, onClose, onUpdateUser }) => {
 
             {/* SAP ID */}
             <div>
-              <label className="text-[10px] font-semibold text-gray-500 uppercase">
+              <label 
+                htmlFor="sap-id-input"
+                className="text-[10px] font-semibold text-gray-500 uppercase">
                 SAP ID
               </label>
               <input
+                id="sap-id-input"
                 type="text"
                 value={userData.SAP}
                 readOnly
@@ -223,10 +226,13 @@ const ProfileSettings = ({ user, onClose, onUpdateUser }) => {
 
             {/* Role */}
             <div>
-              <label className="text-[10px] font-semibold text-gray-500 uppercase">
+              <label 
+                htmlFor="role-id-input"
+                className="text-[10px] font-semibold text-gray-500 uppercase">
                 Role
               </label>
               <input
+                id="role-id-input"
                 type="text"
                 value={userData.role_name}
                 readOnly
@@ -237,10 +243,13 @@ const ProfileSettings = ({ user, onClose, onUpdateUser }) => {
             {/* Position - tampil hanya jika bukan Admin */}
             {userData.role_name !== "Admin" && (
               <div>
-                <label className="text-[10px] font-semibold text-gray-500 uppercase">
+                <label 
+                  htmlFor="position-id-input"
+                  className="text-[10px] font-semibold text-gray-500 uppercase">
                   Position
                 </label>
                 <input
+                  id="position-id-input"
                   type="text"
                   value={userData.position_name || "-"}
                   readOnly
@@ -253,10 +262,13 @@ const ProfileSettings = ({ user, onClose, onUpdateUser }) => {
 
             {/* Name */}
             <div>
-              <label className="text-[10px] font-semibold text-gray-500 uppercase">
+              <label 
+                htmlFor="name-id-input"
+                className="text-[10px] font-semibold text-gray-500 uppercase">
                 Name
               </label>
               <input
+                id="name-id-input"
                 type="text"
                 value={userData.name}
                 onChange={(e) =>
@@ -269,10 +281,13 @@ const ProfileSettings = ({ user, onClose, onUpdateUser }) => {
 
             {/* Username */}
             <div>
-              <label className="text-[10px] font-semibold text-gray-500 uppercase">
+              <label 
+                htmlFor="username-id-input"
+                className="text-[10px] font-semibold text-gray-500 uppercase">
                 Username
               </label>
               <input
+                id="username-id-input"
                 type="text"
                 value={userData.username}
                 onChange={(e) =>

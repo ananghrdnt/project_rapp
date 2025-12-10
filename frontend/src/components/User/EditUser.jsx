@@ -150,8 +150,9 @@ const EditUser = ({ SAP, onClose, onSave }) => {
 
             {/* SAP */}
             <div>
-              <label className="text-xs font-medium">SAP</label>
+              <label htmlFor="sap-EditUser" className="text-xs font-medium">SAP</label>
               <input
+                id="sap-EditUser"
                 type="number"
                 value={SAP}
                 disabled
@@ -161,8 +162,9 @@ const EditUser = ({ SAP, onClose, onSave }) => {
 
             {/* Name */}
             <div>
-              <label className="text-xs font-medium">Name</label>
+              <label htmlFor="name-EditUser" className="text-xs font-medium">Name</label>
               <input
+                id="name-EditUser"
                 value={name}
                 onChange={(e) => updateField("name", e.target.value)}
                 className={inputClass("name")}
@@ -175,8 +177,9 @@ const EditUser = ({ SAP, onClose, onSave }) => {
 
             {/* Username */}
             <div>
-              <label className="text-xs font-medium">Username</label>
+              <label htmlFor="username-EditUser" className="text-xs font-medium">Username</label>
               <input
+                id="username-EditUser"
                 value={username}
                 onChange={(e) => updateField("username", e.target.value)}
                 className={inputClass("username")}
@@ -186,9 +189,10 @@ const EditUser = ({ SAP, onClose, onSave }) => {
 
             {/* Password */}
             <div>
-              <label className="text-xs font-medium">New Password</label>
+              <label htmlFor="password-EditUser" className="text-xs font-medium">New Password</label>
               <div className="relative">
                 <input
+                  id="password-EditUser"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => updateField("password", e.target.value)}
@@ -207,8 +211,9 @@ const EditUser = ({ SAP, onClose, onSave }) => {
 
             {/* Role */}
             <div>
-              <label className="text-xs font-medium">Role</label>
+              <label htmlFor="role-EditUser" className="text-xs font-medium">Role</label>
               <select
+                id="role-EditUser"
                 value={roleId}
                 onChange={(e) => {
                   updateField("roleId", e.target.value);
@@ -227,12 +232,13 @@ const EditUser = ({ SAP, onClose, onSave }) => {
 
             {/* Position */}
             <div>
-              <label className="text-xs font-medium">Position</label>
+              <label htmlFor="position-EditUser" className="text-xs font-medium">Position</label>
               <select
                 disabled={
                   roles.find((r) => r.id_role === Number(roleId))?.role ===
                   "Admin"
                 }
+                id="position-EditUser"
                 value={positionId}
                 onChange={(e) => updateField("positionId", e.target.value)}
                 className={inputClass("positionId")}

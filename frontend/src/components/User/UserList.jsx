@@ -85,9 +85,11 @@ const UserList = () => {
     setShowFilterDropdown(active);
   };
 
-  const clearFilter = () =>
-    updateFilterState("ALL", "ALL", false) ||
-    (setRoleFilter("ALL"), setPositionFilter("ALL"));
+const clearFilter = () => {
+    updateFilterState("ALL", "ALL", false);
+    setRoleFilter("ALL");
+    setPositionFilter("ALL");
+};
 
   const applyFilter = () => {
     setRoleFilter(tempRole);

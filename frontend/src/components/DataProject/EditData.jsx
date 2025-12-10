@@ -263,10 +263,13 @@ const EditData = ({ type, dataId, onClose, onSave }) => {
             {/* Role Dropdown (hanya untuk Position User) */}
             {type === "positionUser" && (
               <div className="flex flex-col gap-1">
-                <label className="font-medium text-xs text-gray-700">
+                <label 
+                  htmlFor="role-select"
+                  className="font-medium text-xs text-gray-700">
                   Role
                 </label>
                 <select
+                  id="role-select"
                   value={roleId}
                   onChange={(e) => setRoleId(e.target.value)}
                   className={inputClass("roleId") + " appearance-none cursor-pointer"}

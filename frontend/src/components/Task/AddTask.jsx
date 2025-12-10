@@ -197,8 +197,11 @@ const AddTask = ({ onClose, onSave }) => {
           {userRole === "ADMIN" ? (
             <>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium">Assigned Group</label>
+                <label 
+                  htmlFor="assignedGroup-task"
+                  className="text-xs font-medium">Assigned Group</label>
                 <select
+                  id="assignedGroup-task"
                   value={form.assignedGroup}
                   onChange={(e) => updateField("assignedGroup", e.target.value)}
                   className={inputClass("assignedGroup")}
@@ -214,8 +217,11 @@ const AddTask = ({ onClose, onSave }) => {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium">Assigned To</label>
+                <label 
+                  htmlFor="assignedTo-task-role"
+                  className="text-xs font-medium">Assigned To</label>
                 <select
+                  id="assignedTo-task-role"
                   value={form.assignedTo}
                   onChange={(e) => updateField("assignedTo", e.target.value)}
                   disabled={!form.assignedGroup}
@@ -235,8 +241,11 @@ const AddTask = ({ onClose, onSave }) => {
             </>
           ) : (
             <div className="col-span-2 flex flex-col gap-1">
-              <label className="text-xs font-medium">Assigned To</label>
+              <label 
+                htmlFor="assignedTo-task-user"
+                className="text-xs font-medium">Assigned To</label>
               <input
+                id="assignedTo-task-user"
                 type="text"
                 value={userName}
                 disabled
@@ -247,8 +256,11 @@ const AddTask = ({ onClose, onSave }) => {
 
           {/* Task Group */}
           <div>
-            <label className="text-xs font-medium">Task Group</label>
+            <label 
+              htmlFor="taskGroup-task"
+              className="text-xs font-medium">Task Group</label>
             <select
+              id="taskGroup-task"
               value={form.taskGroupId}
               onChange={(e) => updateField("taskGroupId", e.target.value)}
               className={inputClass("taskGroupId")}
@@ -267,8 +279,11 @@ const AddTask = ({ onClose, onSave }) => {
 
           {/* Platform */}
           <div>
-            <label className="text-xs font-medium">Platform</label>
+            <label 
+              htmlFor="platform-task"
+              className="text-xs font-medium">Platform</label>
             <select
+              id="platform-task"
               value={form.platformId}
               onChange={(e) => updateField("platformId", e.target.value)}
               className={inputClass("platformId")}
@@ -287,8 +302,11 @@ const AddTask = ({ onClose, onSave }) => {
 
           {/* Task Detail */}
           <div className="col-span-2">
-            <label className="text-xs font-medium">Task Detail</label>
+            <label 
+              htmlFor="taskDetail-task"
+              className="text-xs font-medium">Task Detail</label>
             <textarea
+              id="taskDetail-task"
               value={form.taskDetail}
               onChange={(e) => updateField("taskDetail", e.target.value)}
               className={inputClass("taskDetail")}
@@ -302,8 +320,11 @@ const AddTask = ({ onClose, onSave }) => {
 
           {/* Plan Start */}
           <div>
-            <label className="text-xs font-medium">Plan Start</label>
+            <label 
+              htmlFor="planStart-task"
+              className="text-xs font-medium">Plan Start</label>
             <input
+              id="planStart-task"
               type="date"
               value={form.planStart}
               onChange={(e) => updateField("planStart", e.target.value)}
@@ -316,8 +337,11 @@ const AddTask = ({ onClose, onSave }) => {
 
           {/* Plan End */}
           <div>
-            <label className="text-xs font-medium">Plan End</label>
+            <label 
+              htmlFor="planEnd-task"
+              className="text-xs font-medium">Plan End</label>
             <input
+              id="planEnd-task"
               type="date"
               value={form.planEnd}
               onChange={(e) => updateField("planEnd", e.target.value)}

@@ -172,9 +172,10 @@ const AddUser = ({ onClose, onSave }) => {
 
             {/* PASSWORD */}
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-gray-700">Password</label>
+              <label htmlFor="password-AddUser" className="text-xs text-gray-700">Password</label>
               <div className="relative">
                 <input
+                  id="password-AddUser"
                   type={showPassword ? "text" : "password"}
                   value={form.password}
                   onChange={(e) => updateField("password", e.target.value)}
@@ -196,8 +197,9 @@ const AddUser = ({ onClose, onSave }) => {
 
             {/* ROLE */}
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-gray-700">Role</label>
+              <label htmlFor="role-AddUser" className="text-xs text-gray-700">Role</label>
               <select
+                id="role-AddUser"
                 value={form.roleId}
                 onChange={(e) => updateField("roleId", e.target.value)}
                 className={`${inputClass("roleId")} cursor-pointer`}
@@ -214,8 +216,9 @@ const AddUser = ({ onClose, onSave }) => {
 
             {/* POSITION */}
             <div className="flex flex-col gap-1">
-              <label className="text-xs text-gray-700">Position</label>
+              <label htmlFor="position-AddUser" className="text-xs text-gray-700">Position</label>
               <select
+                id="position-AddUser"
                 value={form.positionId}
                 onChange={(e) => updateField("positionId", e.target.value)}
                 disabled={isAdmin}

@@ -350,10 +350,13 @@ const DataList = () => {
           {showFilterDropdown && activeTab === "positionUser" && (
             <div className="absolute left-0 mt-2 w-48 bg-white shadow-xl rounded-xl border border-gray-200 z-50 p-3">
               <div className="mb-2">
-                <label className="text-[0.65rem] block mb-1 text-gray-600">
+                <label 
+                  htmlFor="role-posision"
+                  className="text-[0.65rem] block mb-1 text-gray-600">
                   Role Position
                 </label>
                 <select
+                  id="role-posision"
                   value={tempRole}
                   onChange={(e) => setTempRole(e.target.value)}
                   className="w-full p-2 border border-gray-300 rounded-lg text-[0.65rem] focus:outline-none focus:ring-2 focus:ring-blue-400"

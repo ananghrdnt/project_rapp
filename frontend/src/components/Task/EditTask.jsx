@@ -219,8 +219,11 @@ const EditTask = ({ id_task, onClose, onSave }) => {
           {userRole === "ADMIN" && (
             <>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium">Assigned Group</label>
+                <label 
+                  htmlFor="assignedGroup-EditTask"
+                  className="text-xs font-medium">Assigned Group</label>
                 <select
+                  id="assignedGroup-EditTask"
                   value={assignedGroup}
                   onChange={(e) => {
                     setAssignedGroup(e.target.value);
@@ -237,8 +240,11 @@ const EditTask = ({ id_task, onClose, onSave }) => {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium">Assigned To</label>
+                <label 
+                  htmlFor="assignedTo-EditTask-role"
+                  className="text-xs font-medium">Assigned To</label>
                 <select
+                  id="assignedTo-EditTask-role"
                   value={assignedTo}
                   onChange={(e) => setAssignedTo(e.target.value)}
                   disabled={!assignedGroup}
@@ -256,15 +262,27 @@ const EditTask = ({ id_task, onClose, onSave }) => {
 
           {userRole !== "ADMIN" && (
             <div className="flex flex-col gap-1 col-span-2">
-              <label className="text-xs font-medium">Assigned To</label>
-              <input type="text" value={userName} disabled className="border rounded-lg px-2 py-1.5 text-xs bg-gray-100 text-gray-600 w-full" />
+              <label 
+                htmlFor="assignedTo-EditTask-user"
+                className="text-xs font-medium">Assigned To</label>
+              <input 
+                id="assignedTo-EditTask-user"
+                type="text"
+                value={userName} 
+                disabled className="border rounded-lg px-2 py-1.5 text-xs bg-gray-100 text-gray-600 w-full" />
             </div>
           )}
 
           {/* Task Group */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium">Task Group</label>
-            <select value={taskGroupId} onChange={(e) => setTaskGroupId(e.target.value)} className={inputClass("taskGroupId")}>
+            <label 
+              htmlFor="assignedGroup-EditTask"
+              className="text-xs font-medium">Task Group</label>
+            <select 
+              id="assignedGroup-EditTask"
+              value={taskGroupId}
+              onChange={(e) => setTaskGroupId(e.target.value)} 
+              className={inputClass("taskGroupId")}>
               <option value="">-- Select Task Group --</option>
               {taskGroups.map((g) => (
                 <option key={g.id_group} value={g.id_group}>{g.task_group}</option>
@@ -275,8 +293,14 @@ const EditTask = ({ id_task, onClose, onSave }) => {
 
           {/* Platform */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium">Platform</label>
-            <select value={platformId} onChange={(e) => setPlatformId(e.target.value)} className={inputClass("platformId")}>
+            <label 
+              htmlFor="platform-EditTask"
+              className="text-xs font-medium">Platform</label>
+            <select 
+              id="platform-EditTask"
+              value={platformId}
+              onChange={(e) => setPlatformId(e.target.value)} 
+              className={inputClass("platformId")}>
               <option value="">-- Select Platform --</option>
               {platforms.map((p) => (
                 <option key={p.id_platform} value={p.id_platform}>{p.platform}</option>
@@ -287,39 +311,41 @@ const EditTask = ({ id_task, onClose, onSave }) => {
 
           {/* Task Detail */}
           <div className="flex flex-col gap-1 col-span-2">
-            <label className="text-xs font-medium">Task Detail</label>
-            <textarea value={taskDetail} onChange={(e) => setTaskDetail(e.target.value)} rows={2} className={inputClass("taskDetail")} placeholder="Details of task" />
+            <label 
+              htmlFor="taskDetail-EditTask"
+              className="text-xs font-medium">Task Detail</label>
+            <textarea htmlFor="taskDetail-EditTask" value={taskDetail} onChange={(e) => setTaskDetail(e.target.value)} rows={2} className={inputClass("taskDetail")} placeholder="Details of task" />
             {errors.taskDetail && <span className="text-red-500 text-xs mt-0.5">{errors.taskDetail}</span>}
           </div>
 
           {/* Plan Start / End */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium">Plan Start</label>
-            <input type="date" value={planStart} onChange={(e) => setPlanStart(e.target.value)} className={inputClass("planStart")} />
+            <label htmlFor="planStart-EditTask" className="text-xs font-medium">Plan Start</label>
+            <input id="planStart-EditTask" type="date" value={planStart} onChange={(e) => setPlanStart(e.target.value)} className={inputClass("planStart")} />
             {errors.planStart && <span className="text-red-500 text-xs mt-0.5">{errors.planStart}</span>}
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium">Plan End</label>
-            <input type="date" value={planEnd} onChange={(e) => setPlanEnd(e.target.value)} className={inputClass("planEnd")} />
+            <label htmlFor="planEnd-EditTask" className="text-xs font-medium">Plan End</label>
+            <input id="planEnd-EditTask" type="date" value={planEnd} onChange={(e) => setPlanEnd(e.target.value)} className={inputClass("planEnd")} />
             {errors.planEnd && <span className="text-red-500 text-xs mt-0.5">{errors.planEnd}</span>}
           </div>
 
           {/* Actual Start / End */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium">Actual Start</label>
-            <input type="date" value={actualStart} onChange={(e) => setActualStart(e.target.value)} className={inputClass("actualStart")} />
+            <label htmlFor="actualStart-EditTask" className="text-xs font-medium">Actual Start</label>
+            <input id="actualStart-EditTask" type="date" value={actualStart} onChange={(e) => setActualStart(e.target.value)} className={inputClass("actualStart")} />
             {errors.actualStart && <span className="text-red-500 text-xs mt-0.5">{errors.actualStart}</span>}
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium">Actual End</label>
-            <input type="date" value={actualEnd} onChange={(e) => setActualEnd(e.target.value)} disabled={Number(taskProgress) < 100} className={inputClass("actualEnd")} />
+            <label htmlFor="actualEnd-EditTask" className="text-xs font-medium">Actual End</label>
+            <input id="actualEnd-EditTask" type="date" value={actualEnd} onChange={(e) => setActualEnd(e.target.value)} disabled={Number(taskProgress) < 100} className={inputClass("actualEnd")} />
             {errors.actualEnd && <span className="text-red-500 text-xs mt-0.5">{errors.actualEnd}</span>}
           </div>
 
           {/* Progress */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium">Progress (%)</label>
-            <input type="number" min="0" max="100" value={taskProgress} onChange={(e) => setTaskProgress(Number(e.target.value))} className={inputClass("taskProgress")} />
+            <label htmlFor="progress-EditTask" className="text-xs font-medium">Progress (%)</label>
+            <input id="progress-EditTask" type="number" min="0" max="100" value={taskProgress} onChange={(e) => setTaskProgress(Number(e.target.value))} className={inputClass("taskProgress")} />
             {errors.taskProgress && <span className="text-red-500 text-xs mt-0.5">{errors.taskProgress}</span>}
           </div>
 
