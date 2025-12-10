@@ -426,8 +426,13 @@ const AddProject = ({ onClose, onSave }) => {
               </>
             ) : (
               <div className="flex flex-col gap-1">
-                <label className="font-medium text-xs text-gray-700">Assigned To</label>
+                <label 
+                  htmlFor="assignedTo-input"
+                  className="font-medium text-xs text-gray-700">
+                  Assigned To
+                </label>
                 <input
+                  id="assignedTo-input"
                   type="text"
                   value={userInfo.name}
                   disabled

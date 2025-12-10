@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
 import useSWR, { useSWRConfig } from "swr";
@@ -31,66 +31,9 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-// Helper: Format Date
-const formatDate = (dateStr) =>
-  dateStr
-    ? new Date(dateStr).toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
-    : "-";
-
-// Helper: Humanize Text
-const humanize = (str) => {
-  if (!str) return "-";
-  return str
-    .toLowerCase()
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-};
-
-// Helper: Get Colors
-const getStatusColor = (status) => {
-  const colors = {
-    COMPLETED: "bg-green-500",
-    IN_PROGRESS: "bg-yellow-500",
-    TO_DO: "bg-red-500",
-  };
-  return colors[status] || "bg-gray-300";
-};
-
-const getSummaryColor = (label) => {
-  const map = {
-    "Total Task": "bg-blue-600",
-    "To Do": getStatusColor("TO_DO"),
-    "In Progress": getStatusColor("IN_PROGRESS"),
-    "Completed": getStatusColor("COMPLETED"),
-  };
-  return map[label] || "bg-gray-400";
-};
-
-// Helper: Late Detection
-const isLate = (planDate, actualDate, isEnd = false) => {
-  if (!planDate) return false;
-  // Jika cek start: return false jika sudah mulai (actual ada)
-  if (!isEnd && actualDate) return false; 
-  // Jika cek end: return false jika actualEnd belum ada (belum selesai)
-  if (isEnd && !actualDate) return false;
-
-  const compareDate = isEnd ? new Date(actualDate) : new Date(); // Start bandingkan dgn today
-  const plan = new Date(planDate);
-  
-  compareDate.setHours(0, 0, 0, 0);
-  plan.setHours(0, 0, 0, 0);
-  
-  return compareDate > plan;
-};
-
 // --- 2. SUB-COMPONENTS (Memecah UI agar bersih) ---
 
-const SummaryCards = ({ tasks }) => {
+const SummaryCards = ({ tasks, getSummaryColor }) => {
   const stats = useMemo(() => [
     { label: "Total Task", value: tasks.length },
     { label: "To Do", value: tasks.filter((t) => t.status === "TO_DO").length },
@@ -120,7 +63,6 @@ const FilterDropdown = ({ isOpen, onClose, onApply, onClear, currentFilters }) =
   const [localMonth, setLocalMonth] = useState(currentFilters.month);
   const [localYear, setLocalYear] = useState(currentFilters.year);
 
-  // Sync internal state when external filters change or modal opens
   useEffect(() => {
     if (isOpen) {
       setLocalStatus(currentFilters.status);
@@ -137,8 +79,8 @@ const FilterDropdown = ({ isOpen, onClose, onApply, onClear, currentFilters }) =
   return (
     <div className="absolute left-0 mt-2 w-72 bg-white shadow-xl rounded-xl border border-gray-200 z-50 p-3">
       <div className="mb-2">
-        <label className="text-[0.65rem] block mb-1 text-gray-600">Status</label>
-        <select value={localStatus} onChange={(e) => setLocalStatus(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-[0.65rem] focus:outline-none focus:ring-2 focus:ring-blue-400">
+        <label htmlFor="status-TaskList" className="text-[0.65rem] block mb-1 text-gray-600">Status</label>
+        <select id="status-TaskList" value={localStatus} onChange={(e) => setLocalStatus(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-[0.65rem] focus:outline-none focus:ring-2 focus:ring-blue-400">
           <option value="ALL">All Status</option>
           <option value="TO_DO">To Do</option>
           <option value="IN_PROGRESS">In Progress</option>
@@ -147,15 +89,15 @@ const FilterDropdown = ({ isOpen, onClose, onApply, onClear, currentFilters }) =
       </div>
       <div className="mb-2 grid grid-cols-2 gap-2">
         <div>
-          <label className="text-[0.65rem] block mb-1 text-gray-600">Month</label>
-          <select value={localMonth} onChange={(e) => setLocalMonth(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-[0.65rem] focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <label htmlFor="mounth-TaskList" className="text-[0.65rem] block mb-1 text-gray-600">Month</label>
+          <select id="mounth-TaskList" value={localMonth} onChange={(e) => setLocalMonth(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-[0.65rem] focus:outline-none focus:ring-2 focus:ring-blue-400">
             <option value="">All Months</option>
             {MONTHS.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
         <div>
-          <label className="text-[0.65rem] block mb-1 text-gray-600">Year</label>
-          <select value={localYear} onChange={(e) => setLocalYear(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-[0.65rem] focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <label htmlFor="year-TaskList" className="text-[0.65rem] block mb-1 text-gray-600">Year</label>
+          <select id="year-TaskList" value={localYear} onChange={(e) => setLocalYear(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-[0.65rem] focus:outline-none focus:ring-2 focus:ring-blue-400">
             <option value="">All Years</option>
             {years.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
@@ -166,58 +108,6 @@ const FilterDropdown = ({ isOpen, onClose, onApply, onClear, currentFilters }) =
         <button onClick={() => onApply(localStatus, localMonth, localYear)} className="bg-blue-500 text-white px-3 py-1 rounded-lg text-[0.65rem] hover:bg-blue-600 transition-colors">Apply</button>
       </div>
     </div>
-  );
-};
-
-const TaskRow = ({ task, userRole, currentUserName, onEdit, onDelete, onInfo }) => {
-  const lateStart = isLate(task.plan_start_date, task.actual_start, false);
-  const lateEnd = isLate(task.plan_end_date, task.actual_end, true);
-  
-  const isAssignedEngineer = task.user?.name?.toLowerCase() === currentUserName;
-  // Gunakan allowed_roles untuk logic permission
-  const hasAccess = ALLOWED_ROLES.includes(userRole);
-  
-  const showEdit = userRole === "ADMIN" || (hasAccess && isAssignedEngineer);
-  const showDelete = userRole === "ADMIN" || (hasAccess && isAssignedEngineer);
-
-  const rowClass = `transition-colors hover:bg-blue-50 ${lateStart || lateEnd ? "bg-red-100 hover:bg-red-200" : ""}`;
-
-  return (
-    <tr className={rowClass}>
-      <td className={`px-3 py-2 border-b border-gray-200 break-words max-w-[400px] ${task.task_detail?.includes("\n") ? "align-top whitespace-pre-wrap" : "align-middle whitespace-nowrap overflow-hidden text-ellipsis"}`}>
-        {task.task_detail}
-      </td>
-      <td className="px-3 py-2 border-b border-gray-200 whitespace-nowrap">{task.group?.task_group || "-"}</td>
-      <td className="px-3 py-2 border-b border-gray-200 whitespace-nowrap">{task.user?.name || "-"}</td>
-      <td className="px-3 py-2 border-b border-gray-200 whitespace-nowrap overflow-hidden text-ellipsis max-w-[85px]">{formatDate(task.plan_start_date)}</td>
-      <td className="px-3 py-2 border-b border-gray-200 whitespace-nowrap overflow-hidden text-ellipsis max-w-[85px]">{formatDate(task.plan_end_date)}</td>
-      <td className="px-3 py-2 border-b border-gray-200 whitespace-nowrap overflow-hidden text-ellipsis max-w-[85px]">{formatDate(task.actual_start)}</td>
-      <td className="px-3 py-2 border-b border-gray-200 whitespace-nowrap overflow-hidden text-ellipsis max-w-[85px]">{formatDate(task.actual_end)}</td>
-      <td className="px-3 py-2 border-b border-gray-200 whitespace-nowrap">{task.platform?.platform || "-"}</td>
-      <td className="px-3 py-2 border-b border-gray-200 font-bold text-center whitespace-nowrap overflow-hidden text-ellipsis max-w-[60px]">{task.task_progress}%</td>
-      <td className="px-3 py-2 border-b border-gray-200 whitespace-nowrap overflow-hidden text-ellipsis max-w-[90px]">
-        <span className={`inline-block px-2 py-1 rounded-lg font-semibold text-[0.6rem] text-white shadow-sm ${getStatusColor(task.status)}`}>
-          {humanize(task.status)}
-        </span>
-      </td>
-      <td className="px-3 py-2 border-b border-gray-200 text-center whitespace-nowrap max-w-[120px]">
-        <div className="flex justify-center items-center gap-1">
-          {showEdit && (
-            <button onClick={() => onEdit(task.id_task)} className="bg-blue-500 hover:bg-blue-600 text-white p-1 rounded-lg w-6 h-6 flex justify-center items-center transition-colors shadow-sm" title="Edit">
-              <IoPencilOutline size={14} />
-            </button>
-          )}
-          {showDelete && (
-            <button onClick={() => onDelete(task.id_task)} className="bg-red-500 hover:bg-red-600 text-white p-1 rounded-lg w-6 h-6 flex justify-center items-center transition-colors shadow-sm" title="Delete">
-              <IoTrashOutline size={14} />
-            </button>
-          )}
-          <button onClick={() => onInfo(task)} className="bg-gray-400 hover:bg-gray-500 text-white p-1 rounded-lg w-6 h-6 flex justify-center items-center transition-colors shadow-sm" title="Info">
-            <IoInformationCircleOutline size={14} />
-          </button>
-        </div>
-      </td>
-    </tr>
   );
 };
 
@@ -240,6 +130,58 @@ const TaskList = () => {
   
   // Filter State
   const [filters, setFilters] = useState({ status: "ALL", month: "", year: "" });
+
+  // Helper functions - harus di dalam komponen
+  const formatDate = useCallback((dateStr) => {
+    if (!dateStr) return "-";
+    return new Date(dateStr).toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  }, []);
+
+  const humanize = useCallback((str) => {
+    if (!str) return "-";
+    return str
+      .toLowerCase()
+      .split("_")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+  }, []);
+
+  const getStatusColor = useCallback((status) => {
+    const colors = {
+      COMPLETED: "bg-green-500",
+      IN_PROGRESS: "bg-yellow-500",
+      TO_DO: "bg-red-500",
+    };
+    return colors[status] || "bg-gray-300";
+  }, []);
+
+  const getSummaryColor = useCallback((label) => {
+    const map = {
+      "Total Task": "bg-blue-600",
+      "To Do": getStatusColor("TO_DO"),
+      "In Progress": getStatusColor("IN_PROGRESS"),
+      "Completed": getStatusColor("COMPLETED"),
+    };
+    return map[label] || "bg-gray-400";
+  }, [getStatusColor]);
+
+  const isLate = useCallback((planDate, actualDate, isEnd = false) => {
+    if (!planDate) return false;
+    if (!isEnd && actualDate) return false; 
+    if (isEnd && !actualDate) return false;
+
+    const compareDate = isEnd ? new Date(actualDate) : new Date();
+    const plan = new Date(planDate);
+    
+    compareDate.setHours(0, 0, 0, 0);
+    plan.setHours(0, 0, 0, 0);
+    
+    return compareDate > plan;
+  }, []);
 
   // User Role Logic
   const { userRole, currentUserName } = useMemo(() => {
@@ -271,6 +213,38 @@ const TaskList = () => {
     const res = await axios.get(`http://localhost:5000/projects/${id_project}/tasks`);
     return res.data;
   });
+
+  // --- Handlers ---
+  const showAlert = useCallback((message, type = "success") => {
+    setAlert({ message, type });
+    if (type !== "confirm") {
+      setTimeout(() => setAlert(null), 3000);
+    }
+  }, []);
+
+  const showConfirm = useCallback((message, onConfirm) => {
+    setAlert({
+      message,
+      type: "confirm",
+      onConfirm: () => {
+        onConfirm();
+        setAlert(null);
+      },
+    });
+  }, []);
+
+  const handleDelete = useCallback((id) => {
+    showConfirm("Are you sure you want to delete this task?", async () => {
+      try {
+        await axios.delete(`http://localhost:5000/tasks/${id}`);
+        mutate(`tasks-${id_project}`);
+        showAlert("Task Deleted Successfully", "success");
+      } catch (err) {
+        console.error(err);
+        showAlert("Failed to delete task", "error");
+      }
+    });
+  }, [mutate, id_project, showAlert, showConfirm]);
 
   // --- Filtering & Sorting Logic (Memoized) ---
   const processedTasks = useMemo(() => {
@@ -326,42 +300,72 @@ const TaskList = () => {
   const pageCount = Math.ceil(processedTasks.length / PAGE_SIZE);
   const pageTasks = processedTasks.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  // --- Handlers ---
-  const showAlert = (message, type = "success") => {
-    setAlert({ message, type });
-    setTimeout(() => setAlert(null), 3000);
-  };
-
-  const handleDelete = (id) => {
-    setAlert({
-      message: "Are you sure you want to delete this task?",
-      type: "confirm",
-      onConfirm: async () => {
-        try {
-          await axios.delete(`http://localhost:5000/tasks/${id}`);
-          mutate(`tasks-${id_project}`);
-          showAlert("Task Deleted Successfully", "success");
-        } catch (err) {
-          console.error(err);
-          showAlert("Failed to delete task", "error");
-        }
-        setAlert(null);
-      },
-    });
-  };
-
-  const handleApplyFilter = (st, mo, ye) => {
+  const handleApplyFilter = useCallback((st, mo, ye) => {
     setFilters({ status: st, month: mo, year: ye });
     setShowFilterDropdown(false);
     setPage(1);
-  };
+  }, []);
 
-  const handleSort = (key) => setSort({ key, asc: sort.key === key ? !sort.asc : true });
+  const handleSort = useCallback((key) => {
+    setSort({ key, asc: sort.key === key ? !sort.asc : true });
+  }, [sort]);
 
-  const getSortIcon = (key) => {
+  const getSortIcon = useCallback((key) => {
     if (sort.key !== key) return <MdOutlineSort size={16} className="inline ml-1 text-blue-300" />;
     return sort.asc ? <MdOutlineArrowDropUp size={16} className="inline ml-1 text-blue-300" /> : <MdOutlineArrowDropDown size={16} className="inline ml-1 text-blue-300" />;
-  };
+  }, [sort]);
+
+  // TaskRow Component - dipindahkan ke dalam agar bisa akses fungsi helper
+  const TaskRow = useCallback(({ task, userRole, currentUserName, onEdit, onDelete, onInfo }) => {
+    const lateStart = isLate(task.plan_start_date, task.actual_start, false);
+    const lateEnd = isLate(task.plan_end_date, task.actual_end, true);
+    
+    const isAssignedEngineer = task.user?.name?.toLowerCase() === currentUserName;
+    const hasAccess = ALLOWED_ROLES.includes(userRole);
+    
+    const showEdit = userRole === "ADMIN" || (hasAccess && isAssignedEngineer);
+    const showDelete = userRole === "ADMIN" || (hasAccess && isAssignedEngineer);
+
+    const rowClass = `transition-colors hover:bg-blue-50 ${lateStart || lateEnd ? "bg-red-100 hover:bg-red-200" : ""}`;
+
+    return (
+      <tr className={rowClass}>
+        <td className={`px-3 py-2 border-b border-gray-200 break-words max-w-[400px] ${task.task_detail?.includes("\n") ? "align-top whitespace-pre-wrap" : "align-middle whitespace-nowrap overflow-hidden text-ellipsis"}`}>
+          {task.task_detail}
+        </td>
+        <td className="px-3 py-2 border-b border-gray-200 whitespace-nowrap">{task.group?.task_group || "-"}</td>
+        <td className="px-3 py-2 border-b border-gray-200 whitespace-nowrap">{task.user?.name || "-"}</td>
+        <td className="px-3 py-2 border-b border-gray-200 whitespace-nowrap overflow-hidden text-ellipsis max-w-[85px]">{formatDate(task.plan_start_date)}</td>
+        <td className="px-3 py-2 border-b border-gray-200 whitespace-nowrap overflow-hidden text-ellipsis max-w-[85px]">{formatDate(task.plan_end_date)}</td>
+        <td className="px-3 py-2 border-b border-gray-200 whitespace-nowrap overflow-hidden text-ellipsis max-w-[85px]">{formatDate(task.actual_start)}</td>
+        <td className="px-3 py-2 border-b border-gray-200 whitespace-nowrap overflow-hidden text-ellipsis max-w-[85px]">{formatDate(task.actual_end)}</td>
+        <td className="px-3 py-2 border-b border-gray-200 whitespace-nowrap">{task.platform?.platform || "-"}</td>
+        <td className="px-3 py-2 border-b border-gray-200 font-bold text-center whitespace-nowrap overflow-hidden text-ellipsis max-w-[60px]">{task.task_progress}%</td>
+        <td className="px-3 py-2 border-b border-gray-200 whitespace-nowrap overflow-hidden text-ellipsis max-w-[90px]">
+          <span className={`inline-block px-2 py-1 rounded-lg font-semibold text-[0.6rem] text-white shadow-sm ${getStatusColor(task.status)}`}>
+            {humanize(task.status)}
+          </span>
+        </td>
+        <td className="px-3 py-2 border-b border-gray-200 text-center whitespace-nowrap max-w-[120px]">
+          <div className="flex justify-center items-center gap-1">
+            {showEdit && (
+              <button onClick={() => onEdit(task.id_task)} className="bg-blue-500 hover:bg-blue-600 text-white p-1 rounded-lg w-6 h-6 flex justify-center items-center transition-colors shadow-sm" title="Edit">
+                <IoPencilOutline size={14} />
+              </button>
+            )}
+            {showDelete && (
+              <button onClick={() => onDelete(task.id_task)} className="bg-red-500 hover:bg-red-600 text-white p-1 rounded-lg w-6 h-6 flex justify-center items-center transition-colors shadow-sm" title="Delete">
+                <IoTrashOutline size={14} />
+              </button>
+            )}
+            <button onClick={() => onInfo(task)} className="bg-gray-400 hover:bg-gray-500 text-white p-1 rounded-lg w-6 h-6 flex justify-center items-center transition-colors shadow-sm" title="Info">
+              <IoInformationCircleOutline size={14} />
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  }, [formatDate, humanize, getStatusColor, isLate]);
 
   if (isLoading || !tasks) return <h2 className="text-center mt-10 text-gray-600">Loading...</h2>;
 
@@ -371,7 +375,7 @@ const TaskList = () => {
         <IoDocumentTextOutline className="text-blue-600" size={18} /> TASK LIST ({projectName || "..."})
       </h2>
 
-      <SummaryCards tasks={processedTasks} />
+      <SummaryCards tasks={processedTasks} getSummaryColor={getSummaryColor} />
 
       <div className="flex justify-between items-center gap-2 mb-3 relative">
         <div className="relative">
@@ -444,7 +448,22 @@ const TaskList = () => {
         </div>
       )}
 
-      {alert && <Alert message={alert.message} type={alert.type} onClose={() => setAlert(null)} actions={alert.type === "confirm" ? [{ label: "Cancel", onClick: () => setAlert(null) }, { label: "Confirm", onClick: alert.onConfirm }] : undefined} />}
+      {/* Alert */}
+      {alert && (
+        <Alert
+          message={alert.message}
+          type={alert.type}
+          onClose={() => setAlert(null)}
+          actions={
+            alert.type === "confirm"
+              ? [
+                  { label: "Cancel", type: "cancel", onClick: () => setAlert(null) },
+                  { label: "Confirm", type: "confirm", onClick: alert.onConfirm },
+                ]
+              : [{ label: "OK", type: "confirm", onClick: () => setAlert(null) }]
+          }
+        />
+      )}
       
       {showAddModal && <AddTask id_project={id_project} onClose={() => setShowAddModal(false)} onSave={async () => { await mutate(`tasks-${id_project}`); setShowAddModal(false); showAlert("Task Added"); }} />}
       {editId && <EditTask id_task={editId} onClose={() => setEditId(null)} onSave={async () => { await mutate(`tasks-${id_project}`); setEditId(null); showAlert("Task Updated"); }} />}

@@ -150,7 +150,9 @@ const Sidebar = () => {
       </ul>
 
       {/* Footer */}
-      <p className="text-[10px] text-gray-400 tracking-wider mt-2">© 2025 APRIL</p>
+      <p className="text-[10px] text-gray-400 tracking-wider mt-2">
+        © 2025 APRIL
+      </p>
     </div>
   );
 };

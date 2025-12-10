@@ -298,8 +298,8 @@ const ProjectList = () => {
       } catch (err) {
         const errorMessage = err.response?.data?.message?.includes("foreign key") ||
           err.response?.data?.message?.includes("task")
-          ? "Failed to delete project because it contains task list inside"
-          : "Failed to delete project because it contains task list inside";
+          ? "Failed to delete project"
+          : err.response?.data?.message || "Failed to delete project because it contains task list inside";
         showAlert(errorMessage, "error");
       }
     });
@@ -509,8 +509,13 @@ const ProjectList = () => {
             {showFilterDropdown && (
               <div className="absolute left-0 mt-2 w-72 bg-white shadow-xl rounded-xl border border-gray-200 z-50 p-3">
                 <div className="mb-2">
-                  <label className="text-[0.65rem] block mb-1 text-gray-600">Status</label>
+                  <label 
+                    htmlFor="status-filter-project"
+                    className="text-[0.65rem] block mb-1 text-gray-600">
+                      Status
+                  </label>
                   <select
+                    id="status-filter-project"
                     value={tempStatus}
                     onChange={(e) => setTempStatus(e.target.value)}
                     className="w-full p-2 border border-gray-300 rounded-lg text-[0.65rem] focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -525,8 +530,11 @@ const ProjectList = () => {
 
                 <div className="mb-2 grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[0.65rem] block mb-1 text-gray-600">Month</label>
+                    <label 
+                      htmlFor="mounth-filter-project"
+                      className="text-[0.65rem] block mb-1 text-gray-600">Month</label>
                     <select
+                      id="mounth-filter-project"
                       value={tempMonth}
                       onChange={(e) => setTempMonth(e.target.value)}
                       className="w-full p-2 border border-gray-300 rounded-lg text-[0.65rem] focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -539,8 +547,11 @@ const ProjectList = () => {
                   </div>
 
                   <div>
-                    <label className="text-[0.65rem] block mb-1 text-gray-600">Year</label>
+                    <label 
+                      htmlFor="year-filter-project"
+                      className="text-[0.65rem] block mb-1 text-gray-600">Year</label>
                     <select
+                      id="year-filter-project"
                       value={tempYear}
                       onChange={(e) => setTempYear(e.target.value)}
                       className="w-full p-2 border border-gray-300 rounded-lg text-[0.65rem] focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -741,8 +752,11 @@ const ProjectList = () => {
             <h3 className="font-bold mb-4 text-base text-gray-800 border-b pb-2">Download Project Data</h3>
             <div className="flex flex-col gap-3 mb-5 text-[0.7rem]">
               <div>
-                <label className="text-gray-600 block mb-1">Start Date (Plan)</label>
+                <label 
+                  htmlFor="startDate-download"
+                  className="text-gray-600 block mb-1">Start Date (Plan)</label>
                 <input
+                  id="startDate-download"
                   type="date"
                   value={downloadStart}
                   onChange={(e) => setDownloadStart(e.target.value)}
@@ -750,8 +764,11 @@ const ProjectList = () => {
                 />
               </div>
               <div>
-                <label className="text-gray-600 block mb-1">End Date (Plan)</label>
+                <label 
+                  htmlFor="endDate-download"
+                  className="text-gray-600 block mb-1">End Date (Plan)</label>
                 <input
+                  id="endDate-download"
                   type="date"
                   value={downloadEnd}
                   onChange={(e) => setDownloadEnd(e.target.value)}

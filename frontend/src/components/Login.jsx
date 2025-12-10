@@ -78,10 +78,13 @@ const Login = ({ onLogin }) => {
             </h2>
 
             {/* Username */}
-            <label className="block mb-1 text-[13px] font-medium text-gray-600">
+            <label 
+              htmlFor="username-input"
+              className="block mb-1 text-[13px] font-medium text-gray-600">
               Username
             </label>
             <input
+              id="username-input"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -90,23 +93,29 @@ const Login = ({ onLogin }) => {
             />
 
             {/* Password */}
-            <label className="block mb-1 text-[13px] font-medium text-gray-600">
+            <label 
+              htmlFor="password-input"
+              className="block mb-1 text-[13px] font-medium text-gray-600">
               Password
             </label>
             <div className="relative mb-4">
               <input
+                id="password-input"
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="border w-full px-3 py-2 rounded-lg text-[13px] text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm"
                 placeholder="Enter your password"
               />
-              <span
-                className="absolute right-3 top-2.5 cursor-pointer text-gray-500 hover:text-blue-500 transition"
+              <button
+                type="button"
+                className="absolute right-3 top-2.5 cursor-pointer text-gray-500 hover:text-blue-500 transition bg-transparent border-none p-0 focus:outline-none focus:ring-2 focus:ring-blue-300"
                 onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                aria-pressed={showPassword}
               >
                 {showPassword ? <FaEyeSlash size={15} /> : <FaEye size={15} />}
-              </span>
+              </button>
             </div>
 
             {/* Error */}
