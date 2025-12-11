@@ -132,14 +132,17 @@ const clearFilter = () => {
       : valA.toString().localeCompare(valB.toString()) * order;
   });
 
-  const renderSortIcon = (key) =>
-    sortConfig.key !== key ? (
-      <MdOutlineSort className="inline ml-1 text-lg text-blue-300" />
-    ) : sortConfig.direction === "asc" ? (
-      <MdOutlineArrowDropUp className="inline ml-1 text-lg text-blue-300" />
-    ) : (
-      <MdOutlineArrowDropDown className="inline ml-1 text-lg text-blue-300" />
-    );
+const renderSortIcon = (key) => {
+  if (sortConfig.key !== key) {
+    return <MdOutlineSort className="inline ml-1 text-lg text-blue-300" />;
+  }
+  
+  if (sortConfig.direction === "asc") {
+    return <MdOutlineArrowDropUp className="inline ml-1 text-lg text-blue-300" />;
+  }
+  
+  return <MdOutlineArrowDropDown className="inline ml-1 text-lg text-blue-300" />;
+};
 
   if (isLoading)
     return (

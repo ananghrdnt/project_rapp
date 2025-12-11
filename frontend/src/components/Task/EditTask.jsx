@@ -114,33 +114,75 @@ const EditTask = ({ id_task, onClose, onSave }) => {
     }
   };
 
-  const validate = () => {
-    const newErrors = {};
-    if (userRole === "ADMIN" && !assignedGroup) newErrors.assignedGroup = "Assigned group is required";
-    if (!assignedTo) newErrors.assignedTo = "Assigned user is required";
-    if (!taskGroupId) newErrors.taskGroupId = "Task group is required";
-    if (!taskDetail) newErrors.taskDetail = "Task detail is required";
-    if (!planStart) newErrors.planStart = "Plan start date is required";
-    if (!planEnd) newErrors.planEnd = "Plan end date is required";
-    if (!platformId) newErrors.platformId = "Platform is required";
+const validate = () => {
+  const validators = [
+    {
+      condition: userRole === "ADMIN" && !assignedGroup,
+      field: "assignedGroup",
+      message: "Assigned group is required"
+    },
+    { condition: !assignedTo, field: "assignedTo", message: "Assigned user is required" },
+    { condition: !taskGroupId, field: "taskGroupId", message: "Task group is required" },
+    { condition: !taskDetail, field: "taskDetail", message: "Task detail is required" },
+    { condition: !planStart, field: "planStart", message: "Plan start date is required" },
+    { condition: !planEnd, field: "planEnd", message: "Plan end date is required" },
+    { condition: !platformId, field: "platformId", message: "Platform is required" },
 
-    if (planStart && planEnd && new Date(planStart) > new Date(planEnd)) {
-      newErrors.planStart = "Plan start cannot be after plan end";
-      newErrors.planEnd = "Plan end cannot be before plan start";
-    }
-    if (actualStart && actualEnd && new Date(actualEnd) < new Date(actualStart)) {
-      newErrors.actualEnd = "Actual end cannot be before actual start";
-    }
-    if (Number(taskProgress) < 0 || Number(taskProgress) > 100) {
-      newErrors.taskProgress = "Progress must be between 0-100";
-    }
-    if (Number(taskProgress) > 0 && !actualStart) newErrors.actualStart = "Actual start required when progress > 0%";
-    if (actualStart && Number(taskProgress) === 0) newErrors.taskProgress = "Progress must be > 0% when actual start filled";
-    if (Number(taskProgress) === 100 && !actualEnd) newErrors.actualEnd = "Actual end required when progress = 100%";
+    {
+      condition: planStart && planEnd && new Date(planStart) > new Date(planEnd),
+      field: "planStart",
+      message: "Plan start cannot be after plan end",
+      extra: { planEnd: "Plan end cannot be before plan start" }
+    },
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+    {
+      condition: actualStart && actualEnd && new Date(actualEnd) < new Date(actualStart),
+      field: "actualEnd",
+      message: "Actual end cannot be before actual start"
+    },
+
+    {
+      condition: Number(taskProgress) < 0 || Number(taskProgress) > 100,
+      field: "taskProgress",
+      message: "Progress must be between 0-100"
+    },
+
+    {
+      condition: Number(taskProgress) > 0 && !actualStart,
+      field: "actualStart",
+      message: "Actual start required when progress > 0%"
+    },
+
+    {
+      condition: actualStart && Number(taskProgress) === 0,
+      field: "taskProgress",
+      message: "Progress must be > 0% when actual start filled"
+    },
+
+    {
+      condition: Number(taskProgress) === 100 && !actualEnd,
+      field: "actualEnd",
+      message: "Actual end required when progress = 100%"
+    }
+  ];
+
+  const newErrors = {};
+
+  validators.forEach(v => {
+    if (v.condition) {
+      newErrors[v.field] = v.message;
+
+      // Jika ada message tambahan
+      if (v.extra) {
+        Object.assign(newErrors, v.extra);
+      }
+    }
+  });
+
+  setErrors(newErrors);
+  return Object.keys(newErrors).length === 0;
+};
+
 
   const showAlert = (msg, type = "error") => {
     setAlert({ message: msg, type });
