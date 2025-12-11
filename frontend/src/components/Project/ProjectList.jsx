@@ -117,12 +117,9 @@ const ProjectList = () => {
   // PERMISSION HANDLING
   
   useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem("user"));
-    if (userData && userData.role) {
-      setUserRole(userData.role.toUpperCase());
-    } else {
-      setUserRole("ITGA");
-    }
+  const userData = JSON.parse(localStorage.getItem("user"));
+  const role = userData?.role?.toUpperCase() || "ITGA";
+  setUserRole(role);
   }, []);
 
   const isAdmin = userRole === "ADMIN";
@@ -230,11 +227,18 @@ const ProjectList = () => {
       const matchMonth = monthFilter === "" || planMonth === monthFilter;
       const matchYear = yearFilter === "" || planYear === yearFilter;
       
-      const matchStatusFinal = statusFilter === "DEFAULT"
-        ? ["TO_DO", "IN_PROGRESS"].includes(p.status)
-        : statusFilter === "ALL"
-        ? true
-        : p.status === statusFilter;
+      const isDefault = statusFilter === "DEFAULT";
+      const isAll = statusFilter === "ALL";
+
+        let matchStatusFinal = false;
+
+        if (isAll) {
+          matchStatusFinal = true;
+        } else if (isDefault) {
+          matchStatusFinal = ["TO_DO", "IN_PROGRESS"].includes(p.status);
+        } else {
+          matchStatusFinal = p.status === statusFilter;
+        }
 
       return matchSearch && matchStatusFinal && matchMonth && matchYear;
     });

@@ -1,205 +1,154 @@
 import React, { useMemo } from "react";
 import { FaTimes, FaInfoCircle, FaHistory } from "react-icons/fa";
 
-const InfoProject = ({ project, onClose }) => {
-  // KONFIGURASI TERPUSAT
-  const config = useMemo(() => ({
-    primaryBlue: "bg-blue-600",
-    textPrimary: "text-blue-600",
-    fieldLabels: {
-      SAP: "ITBP",
-      project_name: "Project Name",
-      project_type: "Project Type",
-      project_type_id: "Project Type",
-      level: "Effort Level",
-      req_date: "Request Date",
-      plan_start_date: "Plan Start",
-      plan_end_date: "Plan End",
-      live_date: "Go Live",
-      remark: "Remark",
-      created_at: "Created At",
-      created_by: "Created By",
-      updated_at: "Updated At",
-      updated_by: "Updated By"
-    },
-    excludedFields: ["actual_start", "actual_end", "task_progress", "status"]
-  }), []);
+/* ------------------------------------------------------
+   KOMPONEN REUSABLE DI LUAR PARENT COMPONENT
+------------------------------------------------------ */
+const MetaInfoItem = ({ label, value, fieldLabels }) => (
+  <div className="flex flex-col gap-0.5">
+    <label className="font-semibold text-[10px] text-gray-500 uppercase">
+      {fieldLabels[label] || label}
+    </label>
+    <span className="text-gray-800 text-[10px]">
+      {label.includes("_at") ? <span className="font-mono">{value}</span> : value}
+    </span>
+  </div>
+);
 
-  // FUNGSI UTILITAS REUSABLE
-  // Format tanggal dengan waktu (untuk created_at, updated_at)
+const ChangeItem = ({ field, beforeVal, afterVal, fieldLabels }) => {
+  const label = field === "project_type_id" ? "Project Type" : fieldLabels[field] || field;
+  return (
+    <div className="grid grid-cols-3 text-center border-t border-gray-100 divide-x divide-gray-100 hover:bg-gray-50 transition-colors">
+      <span className="text-gray-800 font-medium p-1 text-[10px]">{label}</span>
+      <span className="text-red-500 italic p-1 text-[10px]">{beforeVal || "-"}</span>
+      <span className="text-green-600 font-semibold p-1 text-[10px]">{afterVal || "-"}</span>
+    </div>
+  );
+};
+
+const HistoryItem = ({ update, index, formatDateTime, config, formatValue, getProjectTypeName }) => {
+  const changes = update.changes?.split(", ") || [];
+
+  return (
+    <div className="mb-2 p-1 border border-gray-300 rounded-md bg-white last:mb-0 shadow-sm">
+      <div className="text-gray-700 text-[10px] mb-1 pb-1 border-b">
+        <span className="font-bold text-gray-900">{update.updated_by}</span> updated at{" "}
+        <span className="font-mono text-blue-700">{formatDateTime(update.updated_at)}</span>
+      </div>
+
+      {changes.length > 0 ? (
+        <div className="text-gray-700 border border-gray-200 rounded-lg overflow-hidden">
+          <div className="grid grid-cols-3 bg-blue-50 font-semibold text-center py-1 text-[10px] text-gray-700 border-b border-blue-200">
+            <span>Field</span>
+            <span>Before</span>
+            <span>After</span>
+          </div>
+          {changes.map((change, i) => {
+            const [rawField, rawValues] = change.split(": ");
+            const [before, after] = rawValues?.split(" → ") || ["", ""];
+            const field = rawField?.trim();
+            if (config.excludedFields.includes(field)) return null;
+
+            let beforeVal = before?.replace(/'/g, "") || "";
+            let afterVal = after?.replace(/'/g, "") || "";
+
+            if (field === "project_type_id") {
+              beforeVal = getProjectTypeName(beforeVal);
+              afterVal = getProjectTypeName(afterVal);
+            } else {
+              beforeVal = formatValue(field, beforeVal);
+              afterVal = formatValue(field, afterVal);
+            }
+
+            return (
+              <ChangeItem
+                key={`${index}-${i}`}
+                field={field}
+                beforeVal={beforeVal}
+                afterVal={afterVal}
+                fieldLabels={config.fieldLabels}
+              />
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-gray-500 text-[10px] italic p-1">No significant changes recorded.</div>
+      )}
+    </div>
+  );
+};
+
+/* ------------------------------------------------------
+   COMPONENT UTAMA
+------------------------------------------------------ */
+const InfoProject = ({ project, onClose }) => {
+  const config = useMemo(
+    () => ({
+      primaryBlue: "bg-blue-600",
+      textPrimary: "text-blue-600",
+      fieldLabels: {
+        SAP: "ITBP",
+        project_name: "Project Name",
+        project_type: "Project Type",
+        project_type_id: "Project Type",
+        level: "Effort Level",
+        req_date: "Request Date",
+        plan_start_date: "Plan Start",
+        plan_end_date: "Plan End",
+        live_date: "Go Live",
+        remark: "Remark",
+        created_at: "Created At",
+        created_by: "Created By",
+        updated_at: "Updated At",
+        updated_by: "Updated By"
+      },
+      excludedFields: ["actual_start", "actual_end", "task_progress", "status"]
+    }),
+    []
+  );
+
   const formatDateTime = (dateStr) => {
     if (!dateStr) return "-";
     const d = new Date(dateStr);
     if (isNaN(d)) return "-";
-    
-    const day = d.getDate();
-    const month = d.toLocaleString("default", { month: "long" });
-    const year = d.getFullYear();
-    const hours = d.getHours().toString().padStart(2, "0");
-    const minutes = d.getMinutes().toString().padStart(2, "0");
-    const seconds = d.getSeconds().toString().padStart(2, "0");
-    
-    return `${day} ${month} ${year} ${hours}:${minutes}:${seconds}`;
+    return `${d.getDate()} ${d.toLocaleString("default", { month: "long" })} ${d.getFullYear()} ${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}:${d.getSeconds().toString().padStart(2, "0")}`;
   };
 
-  // Format tanggal tanpa waktu (untuk field date lainnya)
   const formatDateOnly = (dateStr) => {
     if (!dateStr) return "-";
     const d = new Date(dateStr);
     if (isNaN(d)) return "-";
-    
     return `${d.getDate()} ${d.toLocaleString("default", { month: "short" })} ${d.getFullYear()}`;
   };
 
-  // Format string: handle uppercase, underscore, dan title case
   const formatStringValue = (value) => {
     if (!value) return "-";
     if (typeof value !== "string") return value;
-
-    // Jika semua huruf besar (contoh: ENHANCEMENT, MAINTENANCE)
     if (/^[A-Z\s]+$/.test(value)) {
-      return value
-        .toLowerCase()
-        .split(" ")
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(" ");
+      return value.toLowerCase().split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
     }
-
-    // Jika mengandung underscore
     if (value.includes("_")) {
-      return value
-        .toLowerCase()
-        .split("_")
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(" ");
+      return value.toLowerCase().split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
     }
-
     return value;
   };
 
-  // Fungsi utama untuk format nilai berdasarkan field
   const formatValue = (field, value) => {
     if (!value) return "-";
-
-    // Format untuk field tanggal (tanpa waktu)
-    if (field.includes("date") && field !== "created_at" && field !== "updated_at") {
-      return formatDateOnly(value);
-    }
-
-    // Format khusus untuk field tertentu
-    if (["project_type", "level", "status"].includes(field)) {
-      return formatStringValue(value);
-    }
-
+    if (field.includes("date") && field !== "created_at" && field !== "updated_at") return formatDateOnly(value);
+    if (["project_type", "level", "status"].includes(field)) return formatStringValue(value);
     return formatStringValue(value);
   };
 
-  // Cari nama project type berdasarkan ID
   const getProjectTypeName = (id) => {
     if (!id || !project.available_types) return id;
-    
-    const found = project.available_types.find(
-      (t) => String(t.id_project_type) === String(id)
-    );
+    const found = project.available_types.find((t) => String(t.id_project_type) === String(id));
     return found ? found.project_type : id;
   };
 
-  // KOMPONEN REUSABLE
-  // Komponen untuk metadata (created/updated info)
-  const MetaInfoItem = ({ label, value }) => (
-    <div className="flex flex-col gap-0.5">
-      <label className="font-semibold text-[10px] text-gray-500 uppercase">
-        {config.fieldLabels[label] || label}
-      </label>
-      <span className="text-gray-800 text-[10px]">
-        {label.includes("_at") ? (
-          <span className="font-mono">{value}</span>
-        ) : (
-          value
-        )}
-      </span>
-    </div>
-  );
-
-  // Komponen untuk perubahan dalam history
-  const ChangeItem = ({ field, beforeVal, afterVal }) => {
-    const label = field === "project_type_id" 
-      ? "Project Type" 
-      : config.fieldLabels[field] || field;
-
-    return (
-      <div className="grid grid-cols-3 text-center border-t border-gray-100 divide-x divide-gray-100 hover:bg-gray-50 transition-colors">
-        <span className="text-gray-800 font-medium p-1 text-[10px]">{label}</span>
-        <span className="text-red-500 italic p-1 text-[10px]">{beforeVal || "-"}</span>
-        <span className="text-green-600 font-semibold p-1 text-[10px]">{afterVal || "-"}</span>
-      </div>
-    );
-  };
-
-  // Komponen untuk history item
-  const HistoryItem = ({ update, index }) => {
-    const changes = update.changes?.split(", ") || [];
-
-    return (
-      <div className="mb-2 p-1 border border-gray-300 rounded-md bg-white last:mb-0 shadow-sm">
-        <div className="text-gray-700 text-[10px] mb-1 pb-1 border-b">
-          <span className="font-bold text-gray-900">{update.updated_by}</span> updated at{" "}
-          <span className="font-mono text-blue-700">{formatDateTime(update.updated_at)}</span>
-        </div>
-
-        {changes.length > 0 ? (
-          <div className="text-gray-700 border border-gray-200 rounded-lg overflow-hidden">
-            <div className="grid grid-cols-3 bg-blue-50 font-semibold text-center py-1 text-[10px] text-gray-700 border-b border-blue-200">
-              <span>Field</span>
-              <span>Before</span>
-              <span>After</span>
-            </div>
-            {changes.map((change, i) => {
-              const [rawField, rawValues] = change.split(": ");
-              const [before, after] = rawValues?.split(" → ") || ["", ""];
-              const field = rawField?.trim();
-
-              // Skip fields yang dikecualikan
-              if (config.excludedFields.includes(field)) {
-                return null;
-              }
-
-              let beforeVal = before?.replace(/'/g, "") || "";
-              let afterVal = after?.replace(/'/g, "") || "";
-
-              // Khusus project_type_id, cari nama dari available_types
-              if (field === "project_type_id") {
-                beforeVal = getProjectTypeName(beforeVal);
-                afterVal = getProjectTypeName(afterVal);
-              } else {
-                beforeVal = formatValue(field, beforeVal);
-                afterVal = formatValue(field, afterVal);
-              }
-
-              return (
-                <ChangeItem
-                  key={`${index}-${i}`}
-                  field={field}
-                  beforeVal={beforeVal}
-                  afterVal={afterVal}
-                />
-              );
-            })}
-          </div>
-        ) : (
-          <div className="text-gray-500 text-[10px] italic p-1">
-            No significant changes recorded.
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  // DATA DERIVED
   const hasUpdate = project.updated_at && project.updated_at !== project.created_at;
   const hasHistory = project.update_history && project.update_history.length > 0;
 
-  // Metadata items untuk grid
   const metaItems = [
     { key: "created_at", value: formatDateTime(project.created_at) },
     { key: "created_by", value: project.created_by || "-" },
@@ -217,29 +166,19 @@ const InfoProject = ({ project, onClose }) => {
           <h3 className="text-sm font-bold m-0 tracking-wide flex items-center gap-2">
             <FaInfoCircle className="w-4 h-4" /> PROJECT INFORMATION
           </h3>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-full hover:bg-white/20 transition-colors text-white"
-            aria-label="Close form"
-          >
+          <button onClick={onClose} className="p-1 rounded-full hover:bg-white/20 transition-colors text-white" aria-label="Close form">
             <FaTimes className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content */}
         <div className="p-4 text-xs space-y-4">
-          {/* Metadata Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 border-b pb-3">
             {metaItems.map((item) => (
-              <MetaInfoItem
-                key={item.key}
-                label={item.key}
-                value={item.value}
-              />
+              <MetaInfoItem key={item.key} label={item.key} value={item.value} fieldLabels={config.fieldLabels} />
             ))}
           </div>
 
-          {/* Update History Section */}
           {hasHistory && (
             <div>
               <h4 className={`font-bold text-xs mb-2 pb-1 border-b ${config.textPrimary} flex items-center gap-2`}>
@@ -251,6 +190,10 @@ const InfoProject = ({ project, onClose }) => {
                     key={idx}
                     update={update}
                     index={idx}
+                    formatDateTime={formatDateTime}
+                    config={config}
+                    formatValue={formatValue}
+                    getProjectTypeName={getProjectTypeName}
                   />
                 ))}
               </div>

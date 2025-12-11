@@ -114,25 +114,25 @@ const EditEngineer = ({ SAP, onClose, onSave }) => {
         : "border-gray-300 focus:border-blue-500"
     }`;
 
-  const Field = ({ label, field, type = "text", disabled = false, children }) => (
-    <div className="flex flex-col gap-1">
-      <label className="font-medium text-xs text-gray-700">{label}</label>
-      {children ? (
-        children
-      ) : (
-        <input
-          type={type}
-          disabled={disabled}
-          value={formData[field]}
-          onChange={(e) => handleChange(field, e.target.value)}
-          className={`${inputClass(field)} ${disabled ? "bg-gray-100 cursor-not-allowed text-gray-600" : ""}`}
-        />
-      )}
-      {errors[field] && (
-        <span className="text-red-500 text-xs">{errors[field]}</span>
-      )}
-    </div>
-  );
+const Field = ({ label, field, type = "text", disabled = false, children }) => (
+  <div className="flex flex-col gap-1">
+    <label className="font-medium text-xs text-gray-700">{label}</label>
+    {children || (
+      <input
+        type={type}
+        disabled={disabled}
+        value={formData[field]}
+        onChange={(e) => handleChange(field, e.target.value)}
+        className={`${inputClass(field)} ${
+          disabled ? "bg-gray-100 cursor-not-allowed text-gray-600" : ""
+        }`}
+      />
+    )}
+    {errors[field] && (
+      <span className="text-red-500 text-xs">{errors[field]}</span>
+    )}
+  </div>
+);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4 font-sans backdrop-blur-sm">
