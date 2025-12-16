@@ -12,26 +12,30 @@ const getInputClass = (fieldName, errors) =>
   }`;
 
 const EditProject = ({ id_project, onClose, onSave }) => {
-  // --- State Declarations ---
-  const [assigned_to, setAssignedTo] = useState("");
-  const [assigned_to_group, setAssignedToGroup] = useState("");
+  // --- State Declarations (Refactored to camelCase for SonarQube Compliance) ---
+  const [assignedTo, setAssignedTo] = useState("");
+  const [assignedToGroup, setAssignedToGroup] = useState("");
+  
+  // Data Master
   const [itbps, setItbps] = useState([]);
-  const [saps, setSAPs] = useState([]);
+  const [saps, setSaps] = useState([]); // Fixed capitalization naming
   const [dataScientists, setDataScientists] = useState([]);
   const [projectTypes, setProjectTypes] = useState([]);
 
-  const [project_name, setProjectName] = useState("");
-  const [project_type_id, setProjectTypeId] = useState("");
+  // Form Fields (camelCase)
+  const [projectName, setProjectName] = useState("");
+  const [projectTypeId, setProjectTypeId] = useState("");
   const [level, setLevel] = useState("");
-  const [req_date, setReqDate] = useState("");
-  const [plan_start_date, setPlanStartDate] = useState("");
-  const [plan_end_date, setPlanEndDate] = useState("");
-  const [live_date, setLiveDate] = useState("");
+  const [reqDate, setReqDate] = useState("");
+  const [planStartDate, setPlanStartDate] = useState("");
+  const [planEndDate, setPlanEndDate] = useState("");
+  const [liveDate, setLiveDate] = useState("");
   const [remark, setRemark] = useState("");
+  
+  // UI States
   const [errors, setErrors] = useState({});
   const [alert, setAlert] = useState(null);
   const [loading, setLoading] = useState(false);
-
   const [userRole, setUserRole] = useState("");
   const [userName, setUserName] = useState("");
 
@@ -58,7 +62,7 @@ const EditProject = ({ id_project, onClose, onSave }) => {
         ]);
         setProjectTypes(typeRes.data);
         setItbps(itbpRes.data);
-        setSAPs(sapRes.data);
+        setSaps(sapRes.data);
         setDataScientists(dsRes.data);
       } catch (err) {
         console.error("Error fetching initial data:", err);
@@ -69,37 +73,37 @@ const EditProject = ({ id_project, onClose, onSave }) => {
 
   // Dropdown user list logic
   const getAssignedToUsers = useCallback(() => {
-    switch (assigned_to_group) {
+    switch (assignedToGroup) {
       case "ITBP": return itbps;
       case "SAP": return saps;
       case "DATA_SCIENCE": return dataScientists;
       default: return [];
     }
-  }, [assigned_to_group, itbps, saps, dataScientists]);
+  }, [assignedToGroup, itbps, saps, dataScientists]);
 
-  // FIX 1: Auto-select Assigned To (Logic disesuaikan agar match dengan SAP ID)
+  // Auto-select Assigned To Logic (Matching SAP ID or User ID)
   useEffect(() => {
-    if (!assigned_to || !assigned_to_group) return;
+    if (!assignedTo || !assignedToGroup) return;
     const users = getAssignedToUsers();
     
-    // Mencoba match dengan SAP dulu (prioritas), baru fallback ke id_user jika perlu
     const match = users.find((u) => 
-      u.SAP?.toString() === assigned_to?.toString() || 
-      u.id_user?.toString() === assigned_to?.toString()
+      u.SAP?.toString() === assignedTo?.toString() || 
+      u.id_user?.toString() === assignedTo?.toString()
     );
 
     if (match) {
-      // Pastikan state di-set ke SAP ID agar sesuai dengan value dropdown
+      // Set to SAP ID if available, otherwise ID User
       setAssignedTo(match.SAP ? match.SAP.toString() : match.id_user.toString());
     }
-  }, [assigned_to, assigned_to_group, getAssignedToUsers]);
+  }, [assignedTo, assignedToGroup, getAssignedToUsers]);
 
-  // Load project detail
+  // Load project detail (Map Snake_Case DB to camelCase State)
   useEffect(() => {
     if (!id_project) return;
     axios.get(`http://localhost:5000/projects/${id_project}`)
       .then((res) => {
         const p = res.data;
+        // Mapping DB (snake_case) -> State (camelCase)
         setAssignedToGroup(p.assigned_to_group || "");
         setAssignedTo(p.assigned_to?.toString() || "");
         setProjectName(p.project_name || "");
@@ -114,40 +118,40 @@ const EditProject = ({ id_project, onClose, onSave }) => {
       .catch((err) => console.error("Error fetching project:", err));
   }, [id_project]);
 
-  // --- Validation Logic (Refactored to reduce nesting) ---
+  // --- Validation Logic ---
 
   const checkDateValidation = (currentErrors) => {
-    if (!req_date || !plan_start_date || !plan_end_date) return;
+    if (!reqDate || !planStartDate || !planEndDate) return;
 
-    const start = new Date(plan_start_date);
-    const end = new Date(plan_end_date);
+    const start = new Date(planStartDate);
+    const end = new Date(planEndDate);
 
     if (start > end) {
-      currentErrors.plan_start_date = "Plan start cannot be after plan end";
+      currentErrors.planStartDate = "Plan start cannot be after plan end";
       return;
     }
 
     const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
     
     if (level === "LOW" && diffDays >= 7) {
-      currentErrors.plan_end_date = "Low effort should be less than 7 days";
+      currentErrors.planEndDate = "Low effort should be less than 7 days";
     } else if (level === "MID" && (diffDays < 7 || diffDays > 21)) {
-      currentErrors.plan_end_date = "Mid effort should be between 7–21 days";
+      currentErrors.planEndDate = "Mid effort should be between 7–21 days";
     } else if (level === "HIGH" && diffDays <= 21) {
-      currentErrors.plan_end_date = "High effort should be more than 21 days";
+      currentErrors.planEndDate = "High effort should be more than 21 days";
     }
   };
 
   const validate = () => {
     const newErrors = {};
-    if (!project_name) newErrors.project_name = "Project name is required";
-    if (!assigned_to) newErrors.assigned_to = "Assigned To is required";
-    if (userRole === "ADMIN" && !assigned_to_group) newErrors.assigned_to_group = "Assigned To Group is required";
-    if (!project_type_id) newErrors.project_type_id = "Project type is required";
+    if (!projectName) newErrors.projectName = "Project name is required";
+    if (!assignedTo) newErrors.assignedTo = "Assigned To is required";
+    if (userRole === "ADMIN" && !assignedToGroup) newErrors.assignedToGroup = "Assigned To Group is required";
+    if (!projectTypeId) newErrors.projectTypeId = "Project type is required";
     if (!level) newErrors.level = "Effort level is required";
-    if (!req_date) newErrors.req_date = "Request date is required";
-    if (!plan_start_date) newErrors.plan_start_date = "Plan start date is required";
-    if (!plan_end_date) newErrors.plan_end_date = "Plan end date is required";
+    if (!reqDate) newErrors.reqDate = "Request date is required";
+    if (!planStartDate) newErrors.planStartDate = "Plan start date is required";
+    if (!planEndDate) newErrors.planEndDate = "Plan end date is required";
     if (!remark) newErrors.remark = "Remark is required";
 
     checkDateValidation(newErrors);
@@ -172,20 +176,23 @@ const EditProject = ({ id_project, onClose, onSave }) => {
 
     setLoading(true);
     try {
+      // Mapping State (camelCase) -> DB Payload (snake_case)
+      const payload = {
+        assigned_to: Number(assignedTo),
+        assigned_to_group: assignedToGroup,
+        project_name: projectName,
+        project_type_id: projectTypeId,
+        level,
+        req_date: reqDate,
+        plan_start_date: planStartDate,
+        plan_end_date: planEndDate,
+        live_date: liveDate || null,
+        remark,
+      };
+
       await axios.patch(
         `http://localhost:5000/projects/${id_project}`,
-        {
-          assigned_to: Number(assigned_to), // Mengirim value (SAP ID)
-          assigned_to_group,
-          project_name,
-          project_type_id,
-          level,
-          req_date,
-          plan_start_date,
-          plan_end_date,
-          live_date: live_date || null,
-          remark,
-        },
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -219,7 +226,6 @@ const EditProject = ({ id_project, onClose, onSave }) => {
 
   // --- Pre-calculated JSX Options ---
   
-  // FIX 2: Menggunakan u.SAP sebagai value (sesuai kode lama Anda)
   const userOptions = useMemo(() => {
     return getAssignedToUsers().map((u) => (
       <option key={u.SAP || u.id_user} value={u.SAP || u.id_user}>
@@ -249,7 +255,7 @@ const EditProject = ({ id_project, onClose, onSave }) => {
             disabled
             className="border rounded-lg px-2 py-1.5 text-xs bg-gray-100 text-gray-600 w-full"
           />
-          <input type="hidden" value={assigned_to} />
+          <input type="hidden" value={assignedTo} />
         </div>
       );
     }
@@ -259,36 +265,36 @@ const EditProject = ({ id_project, onClose, onSave }) => {
         <div className="flex flex-col gap-1">
           <label className="font-medium text-xs text-gray-700">Assigned To Group</label>
           <select
-            value={assigned_to_group}
+            value={assignedToGroup}
             onChange={(e) => {
               setAssignedToGroup(e.target.value);
               setAssignedTo("");
             }}
-            className={getInputClass("assigned_to_group", errors) + " appearance-none cursor-pointer"}
+            className={getInputClass("assignedToGroup", errors) + " appearance-none cursor-pointer"}
           >
             <option value="">-- Select Group --</option>
             <option value="ITBP">ITBP</option>
             <option value="SAP">SAP</option>
             <option value="DATA_SCIENCE">Data Science</option>
           </select>
-          {errors.assigned_to_group && (
-            <span className="text-red-500 text-xs mt-0.5">{errors.assigned_to_group}</span>
+          {errors.assignedToGroup && (
+            <span className="text-red-500 text-xs mt-0.5">{errors.assignedToGroup}</span>
           )}
         </div>
 
         <div className="flex flex-col gap-1">
           <label className="font-medium text-xs text-gray-700">Assigned To User</label>
           <select
-            value={assigned_to}
+            value={assignedTo}
             onChange={(e) => setAssignedTo(e.target.value)}
-            className={getInputClass("assigned_to", errors) + " appearance-none cursor-pointer"}
-            disabled={!assigned_to_group}
+            className={getInputClass("assignedTo", errors) + " appearance-none cursor-pointer"}
+            disabled={!assignedToGroup}
           >
             <option value="">-- Select User --</option>
             {userOptions}
           </select>
-          {errors.assigned_to && (
-            <span className="text-red-500 text-xs mt-0.5">{errors.assigned_to}</span>
+          {errors.assignedTo && (
+            <span className="text-red-500 text-xs mt-0.5">{errors.assignedTo}</span>
           )}
         </div>
       </>
@@ -312,26 +318,26 @@ const EditProject = ({ id_project, onClose, onSave }) => {
               <label className="font-medium text-xs text-gray-700">Project Name</label>
               <input
                 type="text"
-                value={project_name}
+                value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
-                className={getInputClass("project_name", errors)}
+                className={getInputClass("projectName", errors)}
                 placeholder="Project Name"
               />
-              {errors.project_name && <span className="text-red-500 text-xs mt-0.5">{errors.project_name}</span>}
+              {errors.projectName && <span className="text-red-500 text-xs mt-0.5">{errors.projectName}</span>}
             </div>
 
             {/* Project Type */}
             <div className="flex flex-col gap-1">
               <label className="font-medium text-xs text-gray-700">Project Type</label>
               <select
-                value={project_type_id}
+                value={projectTypeId}
                 onChange={(e) => setProjectTypeId(Number(e.target.value))}
-                className={getInputClass("project_type_id", errors) + " appearance-none cursor-pointer"}
+                className={getInputClass("projectTypeId", errors) + " appearance-none cursor-pointer"}
               >
                 <option value="">-- Select Project Type --</option>
                 {typeOptions}
               </select>
-              {errors.project_type_id && <span className="text-red-500 text-xs mt-0.5">{errors.project_type_id}</span>}
+              {errors.projectTypeId && <span className="text-red-500 text-xs mt-0.5">{errors.projectTypeId}</span>}
             </div>
 
             {/* Assigned To Section */}
@@ -358,33 +364,33 @@ const EditProject = ({ id_project, onClose, onSave }) => {
               <label className="font-medium text-xs text-gray-700">Request Date</label>
               <input
                 type="date"
-                value={req_date}
+                value={reqDate}
                 onChange={(e) => setReqDate(e.target.value)}
-                className={getInputClass("req_date", errors)}
+                className={getInputClass("reqDate", errors)}
               />
-              {errors.req_date && <span className="text-red-500 text-xs mt-0.5">{errors.req_date}</span>}
+              {errors.reqDate && <span className="text-red-500 text-xs mt-0.5">{errors.reqDate}</span>}
             </div>
 
             <div className="flex flex-col gap-1">
               <label className="font-medium text-xs text-gray-700">Plan Start</label>
               <input
                 type="date"
-                value={plan_start_date}
+                value={planStartDate}
                 onChange={(e) => setPlanStartDate(e.target.value)}
-                className={getInputClass("plan_start_date", errors)}
+                className={getInputClass("planStartDate", errors)}
               />
-              {errors.plan_start_date && <span className="text-red-500 text-xs mt-0.5">{errors.plan_start_date}</span>}
+              {errors.planStartDate && <span className="text-red-500 text-xs mt-0.5">{errors.planStartDate}</span>}
             </div>
 
             <div className="flex flex-col gap-1">
               <label className="font-medium text-xs text-gray-700">Plan End</label>
               <input
                 type="date"
-                value={plan_end_date}
+                value={planEndDate}
                 onChange={(e) => setPlanEndDate(e.target.value)}
-                className={getInputClass("plan_end_date", errors)}
+                className={getInputClass("planEndDate", errors)}
               />
-              {errors.plan_end_date && <span className="text-red-500 text-xs mt-0.5">{errors.plan_end_date}</span>}
+              {errors.planEndDate && <span className="text-red-500 text-xs mt-0.5">{errors.planEndDate}</span>}
             </div>
 
             {/* Go Live */}
@@ -392,9 +398,9 @@ const EditProject = ({ id_project, onClose, onSave }) => {
               <label className="font-medium text-xs text-gray-700">Go Live</label>
               <input
                 type="date"
-                value={live_date}
+                value={liveDate}
                 onChange={(e) => setLiveDate(e.target.value)}
-                className={getInputClass("live_date", errors)}
+                className={getInputClass("liveDate", errors)}
               />
             </div>
 
