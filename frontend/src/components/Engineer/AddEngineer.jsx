@@ -2,6 +2,33 @@ import React, { useState } from "react";
 import axios from "axios";
 import { FaTimes, FaSave, FaEye, FaEyeSlash } from "react-icons/fa";
 import Alert from "../Alert";
+const Field = ({
+  label,
+  field,
+  type = "text",
+  value,
+  error,
+  onChange,
+  inputClass,
+  children,
+}) => (
+  <div className="flex flex-col gap-1">
+    <label className="font-medium text-xs text-gray-700">{label}</label>
+
+    {children || (
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(field, e.target.value)}
+        className={inputClass(field)}
+      />
+    )}
+
+    {error && (
+      <span className="text-red-500 text-xs mt-0.5">{error}</span>
+    )}
+  </div>
+);
 
 const AddEngineer = ({ onClose, onSave }) => {
   const [formData, setFormData] = useState({
@@ -31,7 +58,7 @@ const AddEngineer = ({ onClose, onSave }) => {
       }
     });
     setErrors(newErrors);
-    return !Object.keys(newErrors).length;
+    return Object.keys(newErrors).length === 0;
   };
 
   const triggerAlert = (message, type = "error", actions = null) => {
@@ -43,6 +70,7 @@ const AddEngineer = ({ onClose, onSave }) => {
 
   const saveEngineer = async (e) => {
     e.preventDefault();
+
     if (!validate()) {
       triggerAlert("Failed to add engineer because of missing fields");
       return;
@@ -87,33 +115,15 @@ const AddEngineer = ({ onClose, onSave }) => {
         : "border-gray-300 focus:border-blue-500"
     }`;
 
-const Field = ({ label, field, type = "text", children }) => (
-  <div className="flex flex-col gap-1">
-    <label className="font-medium text-xs text-gray-700">{label}</label>
-    {children || (
-      <input
-        type={type}
-        value={formData[field]}
-        onChange={(e) => handleChange(field, e.target.value)}
-        className={inputClass(field)}
-      />
-    )}
-    {errors[field] && (
-      <span className="text-red-500 text-xs mt-0.5">{errors[field]}</span>
-    )}
-  </div>
-);
   return (
     <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4 font-sans backdrop-blur-sm">
-      <div className="bg-white rounded-xl w-[500px] max-w-full shadow-2xl overflow-hidden transition-all duration-300 transform scale-100">
+      <div className="bg-white rounded-xl w-[500px] max-w-full shadow-2xl overflow-hidden">
         {/* HEADER */}
-        <div className="p-4 flex justify-between items-center bg-blue-600 text-white border-b border-blue-700">
-          <h3 className="text-sm font-bold m-0 tracking-wide">
-            FORM ADD NEW ENGINEER
-          </h3>
+        <div className="p-4 flex justify-between items-center bg-blue-600 text-white">
+          <h3 className="text-sm font-bold">FORM ADD NEW ENGINEER</h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-full hover:bg-white/20 transition-colors text-white"
+            className="p-1 rounded-full hover:bg-white/20"
             aria-label="Close form"
           >
             <FaTimes className="w-5 h-5" />
@@ -123,40 +133,63 @@ const Field = ({ label, field, type = "text", children }) => (
         {/* BODY */}
         <form onSubmit={saveEngineer} className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="SAP" field="SAP" type="number" />
-            <Field label="Name" field="name" />
-            <Field label="Username" field="username" />
+            <Field
+              label="SAP"
+              field="SAP"
+              type="number"
+              value={formData.SAP}
+              error={errors.SAP}
+              onChange={handleChange}
+              inputClass={inputClass}
+            />
+
+            <Field
+              label="Name"
+              field="name"
+              value={formData.name}
+              error={errors.name}
+              onChange={handleChange}
+              inputClass={inputClass}
+            />
+
+            <Field
+              label="Username"
+              field="username"
+              value={formData.username}
+              error={errors.username}
+              onChange={handleChange}
+              inputClass={inputClass}
+            />
 
             {/* PASSWORD */}
-            <Field label="Password" field="password">
+            <Field label="Password" error={errors.password}>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
                   value={formData.password}
-                  onChange={(e) => handleChange("password", e.target.value)}
+                  onChange={(e) =>
+                    handleChange("password", e.target.value)
+                  }
                   className={inputClass("password")}
-                  placeholder="********"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600 transition-colors p-1"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-blue-600"
                 >
-                  {showPassword ? (
-                    <FaEyeSlash className="w-4 h-4" />
-                  ) : (
-                    <FaEye className="w-4 h-4" />
-                  )}
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
                 </button>
               </div>
             </Field>
 
             {/* POSITION */}
-            <Field label="Position" field="position">
+            <Field label="Position" error={errors.position}>
               <select
                 value={formData.position}
-                onChange={(e) => handleChange("position", e.target.value)}
-                className={inputClass("position") + " appearance-none cursor-pointer"}
+                onChange={(e) =>
+                  handleChange("position", e.target.value)
+                }
+                className={`${inputClass("position")} appearance-none`}
               >
                 <option value="" disabled>
                   Select Position
@@ -176,12 +209,11 @@ const Field = ({ label, field, type = "text", children }) => (
               disabled={loading}
               className={`${
                 loading
-                  ? "bg-gray-400 cursor-not-allowed"
+                  ? "bg-gray-400"
                   : "bg-green-600 hover:bg-green-700"
-              } text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-md transition-all duration-200 transform active:scale-[0.98] hover:shadow-lg`}
+              } text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2`}
             >
-              <FaSave className="w-4 h-4" />{" "}
-              {loading ? "Saving..." : "Save Engineer"}
+              <FaSave /> {loading ? "Saving..." : "Save Engineer"}
             </button>
           </div>
         </form>
@@ -193,7 +225,11 @@ const Field = ({ label, field, type = "text", children }) => (
             type={alert.type}
             actions={
               alert.actions || [
-                { label: "OK", type: "confirm", onClick: () => setAlert(null) },
+                {
+                  label: "OK",
+                  type: "confirm",
+                  onClick: () => setAlert(null),
+                },
               ]
             }
           />

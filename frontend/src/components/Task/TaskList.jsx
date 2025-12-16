@@ -43,8 +43,9 @@ const SummaryCards = ({ tasks, getSummaryColor }) => {
 
   return (
     <div className="grid grid-cols-4 gap-3 mb-4">
-      {stats.map((item, idx) => (
-        <div key={idx} className="bg-white p-3 rounded-xl flex justify-between items-center shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
+      {stats.map((item) => (
+        // FIX 1: Menggunakan item.label sebagai key, bukan index
+        <div key={item.label} className="bg-white p-3 rounded-xl flex justify-between items-center shadow-lg border border-gray-100 hover:shadow-xl transition-shadow">
           <div>
             <div className="text-[0.65rem] text-gray-500">{item.label}</div>
             <div className="text-[0.8rem] font-bold text-gray-800">{item.value}</div>
@@ -411,8 +412,9 @@ const TaskList = () => {
                 { k: "plan_end_date", l: "Plan End" }, { k: "actual_start", l: "Actual Start" },
                 { k: "actual_end", l: "Actual End" }, { k: "platform", l: "Platform" },
                 { k: "task_progress", l: "Progress" }, { k: "status", l: "Status" }
-              ].map((h, i) => (
-                <th key={i} className={`text-left px-3 py-2 font-semibold cursor-pointer select-none whitespace-nowrap ${i === 0 ? "rounded-tl-xl" : ""}`} onClick={() => handleSort(h.k)}>
+              ].map((h) => (
+                // FIX 2: Menggunakan h.k (kolom key) sebagai key unik, bukan index i
+                <th key={h.k} className="text-left px-3 py-2 font-semibold cursor-pointer select-none whitespace-nowrap" onClick={() => handleSort(h.k)}>
                   <span className="inline-flex items-center gap-1">{h.l} {getSortIcon(h.k)}</span>
                 </th>
               ))}
