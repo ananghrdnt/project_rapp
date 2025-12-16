@@ -12,17 +12,17 @@ const getInputClass = (fieldName, errors) =>
   }`;
 
 const EditProject = ({ id_project, onClose, onSave }) => {
-  // --- State Declarations (Refactored to camelCase for SonarQube Compliance) ---
+  // --- State Declarations ---
   const [assignedTo, setAssignedTo] = useState("");
   const [assignedToGroup, setAssignedToGroup] = useState("");
   
   // Data Master
   const [itbps, setItbps] = useState([]);
-  const [saps, setSaps] = useState([]); // Fixed capitalization naming
+  const [saps, setSaps] = useState([]); 
   const [dataScientists, setDataScientists] = useState([]);
   const [projectTypes, setProjectTypes] = useState([]);
 
-  // Form Fields (camelCase)
+  // Form Fields
   const [projectName, setProjectName] = useState("");
   const [projectTypeId, setProjectTypeId] = useState("");
   const [level, setLevel] = useState("");
@@ -81,7 +81,7 @@ const EditProject = ({ id_project, onClose, onSave }) => {
     }
   }, [assignedToGroup, itbps, saps, dataScientists]);
 
-  // Auto-select Assigned To Logic (Matching SAP ID or User ID)
+  // Auto-select Assigned To Logic
   useEffect(() => {
     if (!assignedTo || !assignedToGroup) return;
     const users = getAssignedToUsers();
@@ -92,18 +92,16 @@ const EditProject = ({ id_project, onClose, onSave }) => {
     );
 
     if (match) {
-      // Set to SAP ID if available, otherwise ID User
       setAssignedTo(match.SAP ? match.SAP.toString() : match.id_user.toString());
     }
   }, [assignedTo, assignedToGroup, getAssignedToUsers]);
 
-  // Load project detail (Map Snake_Case DB to camelCase State)
+  // Load project detail
   useEffect(() => {
     if (!id_project) return;
     axios.get(`http://localhost:5000/projects/${id_project}`)
       .then((res) => {
         const p = res.data;
-        // Mapping DB (snake_case) -> State (camelCase)
         setAssignedToGroup(p.assigned_to_group || "");
         setAssignedTo(p.assigned_to?.toString() || "");
         setProjectName(p.project_name || "");
@@ -176,7 +174,6 @@ const EditProject = ({ id_project, onClose, onSave }) => {
 
     setLoading(true);
     try {
-      // Mapping State (camelCase) -> DB Payload (snake_case)
       const payload = {
         assigned_to: Number(assignedTo),
         assigned_to_group: assignedToGroup,
@@ -248,8 +245,10 @@ const EditProject = ({ id_project, onClose, onSave }) => {
     if (userRole !== "ADMIN") {
       return (
         <div className="flex flex-col gap-1">
-          <label className="font-medium text-xs text-gray-700">Assigned To</label>
+          {/* FIX: Tambahkan htmlFor pada label dan id pada input */}
+          <label htmlFor="assigned-to-readonly" className="font-medium text-xs text-gray-700">Assigned To</label>
           <input
+            id="assigned-to-readonly"
             type="text"
             value={`${userName}`}
             disabled
@@ -263,8 +262,10 @@ const EditProject = ({ id_project, onClose, onSave }) => {
     return (
       <>
         <div className="flex flex-col gap-1">
-          <label className="font-medium text-xs text-gray-700">Assigned To Group</label>
+          {/* FIX: Tambahkan htmlFor dan id */}
+          <label htmlFor="assigned-to-group" className="font-medium text-xs text-gray-700">Assigned To Group</label>
           <select
+            id="assigned-to-group"
             value={assignedToGroup}
             onChange={(e) => {
               setAssignedToGroup(e.target.value);
@@ -283,8 +284,10 @@ const EditProject = ({ id_project, onClose, onSave }) => {
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="font-medium text-xs text-gray-700">Assigned To User</label>
+          {/* FIX: Tambahkan htmlFor dan id */}
+          <label htmlFor="assigned-to-user" className="font-medium text-xs text-gray-700">Assigned To User</label>
           <select
+            id="assigned-to-user"
             value={assignedTo}
             onChange={(e) => setAssignedTo(e.target.value)}
             className={getInputClass("assignedTo", errors) + " appearance-none cursor-pointer"}
@@ -315,8 +318,9 @@ const EditProject = ({ id_project, onClose, onSave }) => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Project Name */}
             <div className="flex flex-col gap-1">
-              <label className="font-medium text-xs text-gray-700">Project Name</label>
+              <label htmlFor="project-name" className="font-medium text-xs text-gray-700">Project Name</label>
               <input
+                id="project-name"
                 type="text"
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
@@ -328,8 +332,9 @@ const EditProject = ({ id_project, onClose, onSave }) => {
 
             {/* Project Type */}
             <div className="flex flex-col gap-1">
-              <label className="font-medium text-xs text-gray-700">Project Type</label>
+              <label htmlFor="project-type" className="font-medium text-xs text-gray-700">Project Type</label>
               <select
+                id="project-type"
                 value={projectTypeId}
                 onChange={(e) => setProjectTypeId(Number(e.target.value))}
                 className={getInputClass("projectTypeId", errors) + " appearance-none cursor-pointer"}
@@ -345,8 +350,9 @@ const EditProject = ({ id_project, onClose, onSave }) => {
 
             {/* Effort Level */}
             <div className="flex flex-col gap-1">
-              <label className="font-medium text-xs text-gray-700">Effort Est Level</label>
+              <label htmlFor="effort-level" className="font-medium text-xs text-gray-700">Effort Est Level</label>
               <select
+                id="effort-level"
                 value={level}
                 onChange={(e) => setLevel(e.target.value)}
                 className={getInputClass("level", errors) + " appearance-none cursor-pointer"}
@@ -361,8 +367,9 @@ const EditProject = ({ id_project, onClose, onSave }) => {
 
             {/* Dates */}
             <div className="flex flex-col gap-1">
-              <label className="font-medium text-xs text-gray-700">Request Date</label>
+              <label htmlFor="req-date" className="font-medium text-xs text-gray-700">Request Date</label>
               <input
+                id="req-date"
                 type="date"
                 value={reqDate}
                 onChange={(e) => setReqDate(e.target.value)}
@@ -372,8 +379,9 @@ const EditProject = ({ id_project, onClose, onSave }) => {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="font-medium text-xs text-gray-700">Plan Start</label>
+              <label htmlFor="plan-start" className="font-medium text-xs text-gray-700">Plan Start</label>
               <input
+                id="plan-start"
                 type="date"
                 value={planStartDate}
                 onChange={(e) => setPlanStartDate(e.target.value)}
@@ -383,8 +391,9 @@ const EditProject = ({ id_project, onClose, onSave }) => {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="font-medium text-xs text-gray-700">Plan End</label>
+              <label htmlFor="plan-end" className="font-medium text-xs text-gray-700">Plan End</label>
               <input
+                id="plan-end"
                 type="date"
                 value={planEndDate}
                 onChange={(e) => setPlanEndDate(e.target.value)}
@@ -395,8 +404,9 @@ const EditProject = ({ id_project, onClose, onSave }) => {
 
             {/* Go Live */}
             <div className="flex flex-col gap-1">
-              <label className="font-medium text-xs text-gray-700">Go Live</label>
+              <label htmlFor="go-live" className="font-medium text-xs text-gray-700">Go Live</label>
               <input
+                id="go-live"
                 type="date"
                 value={liveDate}
                 onChange={(e) => setLiveDate(e.target.value)}
@@ -406,8 +416,9 @@ const EditProject = ({ id_project, onClose, onSave }) => {
 
             {/* Remark */}
             <div className="flex flex-col gap-1 sm:col-span-2">
-              <label className="font-medium text-xs text-gray-700">Remark</label>
+              <label htmlFor="remark" className="font-medium text-xs text-gray-700">Remark</label>
               <input
+                id="remark"
                 type="text"
                 value={remark}
                 onChange={(e) => setRemark(e.target.value)}
