@@ -138,7 +138,7 @@ const ProjectList = () => {
     const user = JSON.parse(localStorage.getItem("user"));
     const res = await axios.get("http://localhost:5000/projects");
     
-    const projects = res.data.map(p => ({
+    const projectsData = res.data.map(p => ({
       ...p,
       assigned_to_name: p.user?.name || "-",
       assigned_to_role: p.user?.role?.role || null,
@@ -148,10 +148,10 @@ const ProjectList = () => {
     const role = user?.role?.toUpperCase();
     const userNameLower = user?.name?.toLowerCase();
 
-    if (role === "ADMIN") return projects;
+    if (role === "ADMIN") return projectsData;
 
     if (["ITBP", "SAP", "DATA_SCIENCE"].includes(role)) {
-      return projects.filter(p => 
+      return projectsData.filter(p => 
         (p.assigned_to_name?.toLowerCase() === userNameLower) || 
         (p.tasks?.some(t => t.user?.name?.toLowerCase() === userNameLower)) ||
         (["SAP", "DATA_SCIENCE"].includes(role) && p.assigned_to_role === "ITBP")
@@ -159,7 +159,7 @@ const ProjectList = () => {
     }
 
     if (role === "ITGA") {
-      return projects.filter(p => p.assigned_to_role === "ITBP");
+      return projectsData.filter(p => p.assigned_to_role === "ITBP");
     }
 
     return [];
@@ -465,9 +465,10 @@ const ProjectList = () => {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-4 gap-3 mb-4">
-        {summaryData.map((item, idx) => (
+        {summaryData.map((item) => (
+          // FIX: Menggunakan item.label sebagai key, bukan index
           <div
-            key={idx}
+            key={item.label}
             className="bg-white p-3 rounded-xl flex justify-between items-center shadow-lg border border-gray-100 hover:shadow-xl transition-shadow"
           >
             <div>
@@ -643,7 +644,7 @@ const ProjectList = () => {
               </tr>
             ) : (
               pageData.map((p) => (
-                <tr key={p.id_project} className="hover:bg-blue-50 transition-colors">
+                <tr key={p.id_project} className="hover:bg-blue-5 transition-colors">
                   {tableColumns.map((col) => (
                     <td key={col.key} className={`px-3 py-2 border-b border-gray-200 ${col.width}`}>
                       {renderTableCell(col, p)}
@@ -708,8 +709,9 @@ const ProjectList = () => {
             Prev
           </button>
           {Array.from({ length: pageCount }, (_, i) => (
+            // FIX: Menggunakan i+1 sebagai key, bukan index mentah
             <button
-              key={i}
+              key={i + 1}
               className={`px-2 py-1 border border-gray-300 rounded-lg transition-colors font-semibold ${
                 page === i + 1 ? "bg-blue-600 text-white shadow-md" : "bg-white hover:bg-blue-50 text-gray-700"
               }`}

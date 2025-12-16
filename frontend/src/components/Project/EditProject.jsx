@@ -1,202 +1,209 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import axios from "axios";
 import { FaTimes, FaSave } from "react-icons/fa";
 import Alert from "../Alert";
 
-// --- 1. Constants & Utils ---
-const API_BASE = "http://localhost:5000";
-const ROLES = {
-  ADMIN: "ADMIN",
-  ITBP: "ITBP",
-  SAP: "SAP",
-  DS: "DATA_SCIENCE",
-};
-
-// Validasi durasi (sama dengan AddProject)
-const validateProjectDuration = (startStr, endStr, level) => {
-  if (!startStr || !endStr) return null;
-  const start = new Date(startStr);
-  const end = new Date(endStr);
-  
-  if (start > end) return "Plan start cannot be after plan end";
-
-  const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-  
-  if (level === "LOW" && diffDays >= 7) return "Low effort should be less than 7 days";
-  if (level === "MID" && (diffDays < 7 || diffDays > 21)) return "Mid effort should be between 7–21 days";
-  if (level === "HIGH" && diffDays <= 21) return "High effort should be more than 21 days";
-
-  return null;
-};
-
-// --- 2. Reusable UI Components ---
-
-const FormInput = ({ label, name, value, onChange, error, type = "text", placeholder, disabled = false }) => (
-  <div className="flex flex-col gap-1">
-    <label className="font-medium text-xs text-gray-700">{label}</label>
-    <input
-      type={type}
-      name={name}
-      value={value || ""}
-      onChange={onChange}
-      placeholder={placeholder}
-      disabled={disabled}
-      className={`border rounded-lg px-2 py-1.5 text-xs w-full transition duration-150 ease-in-out placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-        error ? "border-red-500 bg-red-50" : "border-gray-300 focus:border-blue-500"
-      } ${disabled ? "bg-gray-100 text-gray-600" : ""}`}
-    />
-    {error && <span className="text-red-500 text-xs mt-0.5">{error}</span>}
-  </div>
-);
-
-const FormSelect = ({ label, name, value, onChange, error, options, disabled = false, defaultOption = "Select" }) => (
-  <div className="flex flex-col gap-1">
-    <label className="font-medium text-xs text-gray-700">{label}</label>
-    <select
-      name={name}
-      value={value || ""}
-      onChange={onChange}
-      disabled={disabled}
-      className={`border rounded-lg px-2 py-1.5 text-xs w-full appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-        error ? "border-red-500 bg-red-50" : "border-gray-300 focus:border-blue-500"
-      }`}
-    >
-      <option value="">-- {defaultOption} --</option>
-      {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-    </select>
-    {error && <span className="text-red-500 text-xs mt-0.5">{error}</span>}
-  </div>
-);
-
-// --- 3. Main Component ---
+// Helper function untuk class input
+const getInputClass = (fieldName, errors) =>
+  `border rounded-lg px-2 py-1.5 text-xs w-full transition duration-150 ease-in-out placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+    errors[fieldName]
+      ? "border-red-500 bg-red-50"
+      : "border-gray-300 focus:border-blue-500"
+  }`;
 
 const EditProject = ({ id_project, onClose, onSave }) => {
-  // State
-  const [formData, setFormData] = useState({
-    assigned_to: "",
-    assigned_to_group: "",
-    project_name: "",
-    project_type_id: "",
-    level: "",
-    req_date: "",
-    plan_start_date: "",
-    plan_end_date: "",
-    live_date: "",
-    remark: "",
-  });
+  // --- State Declarations ---
+  const [assigned_to, setAssignedTo] = useState("");
+  const [assigned_to_group, setAssignedToGroup] = useState("");
+  const [itbps, setItbps] = useState([]);
+  const [saps, setSAPs] = useState([]);
+  const [dataScientists, setDataScientists] = useState([]);
+  const [projectTypes, setProjectTypes] = useState([]);
 
-  const [options, setOptions] = useState({
-    projectTypes: [],
-    users: { [ROLES.ITBP]: [], [ROLES.SAP]: [], [ROLES.DS]: [] },
-  });
-
-  const [currentUser, setCurrentUser] = useState({ role: "", name: "" });
-  const [loading, setLoading] = useState(false);
+  const [project_name, setProjectName] = useState("");
+  const [project_type_id, setProjectTypeId] = useState("");
+  const [level, setLevel] = useState("");
+  const [req_date, setReqDate] = useState("");
+  const [plan_start_date, setPlanStartDate] = useState("");
+  const [plan_end_date, setPlanEndDate] = useState("");
+  const [live_date, setLiveDate] = useState("");
+  const [remark, setRemark] = useState("");
   const [errors, setErrors] = useState({});
   const [alert, setAlert] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  // Initial Data Fetching
+  const [userRole, setUserRole] = useState("");
+  const [userName, setUserName] = useState("");
+
+  const primaryBlue = "bg-blue-600";
+  const primaryGreen = "bg-green-600 hover:bg-green-700";
+
+  // --- Effects ---
+
+  // Load user info + supporting data
   useEffect(() => {
-    // 1. User Info
     const userData = JSON.parse(localStorage.getItem("user"));
     if (userData) {
-      setCurrentUser({ 
-        role: userData.role?.toUpperCase() || "", 
-        name: userData.name || "" 
-      });
+      setUserRole(userData.role?.toUpperCase() || "");
+      setUserName(userData.name || "");
     }
 
-    // 2. Load Dropdown Options & Project Data
-    const initData = async () => {
+    const fetchData = async () => {
       try {
-        const [typesRes, itbpRes, sapRes, dsRes, projectRes] = await Promise.all([
-          axios.get(`${API_BASE}/projecttypes`),
-          axios.get(`${API_BASE}/users?role=${ROLES.ITBP}`),
-          axios.get(`${API_BASE}/users?role=${ROLES.SAP}`),
-          axios.get(`${API_BASE}/users?role=${ROLES.DS}`),
-          axios.get(`${API_BASE}/projects/${id_project}`),
+        const [typeRes, itbpRes, sapRes, dsRes] = await Promise.all([
+          axios.get("http://localhost:5000/projecttypes"),
+          axios.get("http://localhost:5000/users?role=ITBP"),
+          axios.get("http://localhost:5000/users?role=SAP"),
+          axios.get("http://localhost:5000/users?role=DATA_SCIENCE"),
         ]);
-
-        // Set Options
-        setOptions({
-          projectTypes: typesRes.data.map(t => ({
-            value: t.id_type,
-            label: t.project_type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase())
-          })),
-          users: {
-            [ROLES.ITBP]: itbpRes.data,
-            [ROLES.SAP]: sapRes.data,
-            [ROLES.DS]: dsRes.data,
-          }
-        });
-
-        // Set Form Data from Project
-        const p = projectRes.data;
-        setFormData({
-          assigned_to: p.assigned_to?.toString() || "",
-          assigned_to_group: p.assigned_to_group || "",
-          project_name: p.project_name || "",
-          project_type_id: p.project_type_id || "",
-          level: p.level || "",
-          req_date: p.req_date?.substring(0, 10) || "",
-          plan_start_date: p.plan_start_date?.substring(0, 10) || "",
-          plan_end_date: p.plan_end_date?.substring(0, 10) || "",
-          live_date: p.live_date?.substring(0, 10) || "",
-          remark: p.remark || "",
-        });
-
+        setProjectTypes(typeRes.data);
+        setItbps(itbpRes.data);
+        setSAPs(sapRes.data);
+        setDataScientists(dsRes.data);
       } catch (err) {
-        console.error("Error fetching data:", err);
-        setAlert({ message: "Failed to load project data", type: "error" });
+        console.error("Error fetching initial data:", err);
       }
     };
+    fetchData();
+  }, []);
 
-    if (id_project) initData();
+  // Dropdown user list logic
+  const getAssignedToUsers = useCallback(() => {
+    switch (assigned_to_group) {
+      case "ITBP": return itbps;
+      case "SAP": return saps;
+      case "DATA_SCIENCE": return dataScientists;
+      default: return [];
+    }
+  }, [assigned_to_group, itbps, saps, dataScientists]);
+
+  // FIX 1: Auto-select Assigned To (Logic disesuaikan agar match dengan SAP ID)
+  useEffect(() => {
+    if (!assigned_to || !assigned_to_group) return;
+    const users = getAssignedToUsers();
+    
+    // Mencoba match dengan SAP dulu (prioritas), baru fallback ke id_user jika perlu
+    const match = users.find((u) => 
+      u.SAP?.toString() === assigned_to?.toString() || 
+      u.id_user?.toString() === assigned_to?.toString()
+    );
+
+    if (match) {
+      // Pastikan state di-set ke SAP ID agar sesuai dengan value dropdown
+      setAssignedTo(match.SAP ? match.SAP.toString() : match.id_user.toString());
+    }
+  }, [assigned_to, assigned_to_group, getAssignedToUsers]);
+
+  // Load project detail
+  useEffect(() => {
+    if (!id_project) return;
+    axios.get(`http://localhost:5000/projects/${id_project}`)
+      .then((res) => {
+        const p = res.data;
+        setAssignedToGroup(p.assigned_to_group || "");
+        setAssignedTo(p.assigned_to?.toString() || "");
+        setProjectName(p.project_name || "");
+        setProjectTypeId(p.project_type_id || "");
+        setLevel(p.level || "");
+        setReqDate(p.req_date?.substring(0, 10) || "");
+        setPlanStartDate(p.plan_start_date?.substring(0, 10) || "");
+        setPlanEndDate(p.plan_end_date?.substring(0, 10) || "");
+        setLiveDate(p.live_date?.substring(0, 10) || "");
+        setRemark(p.remark || "");
+      })
+      .catch((err) => console.error("Error fetching project:", err));
   }, [id_project]);
 
-  // Handlers
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => {
-      const updated = { ...prev, [name]: value };
-      if (name === "assigned_to_group") updated.assigned_to = "";
-      return updated;
-    });
-    if (errors[name]) setErrors(prev => ({ ...prev, [name]: null }));
+  // --- Validation Logic (Refactored to reduce nesting) ---
+
+  const checkDateValidation = (currentErrors) => {
+    if (!req_date || !plan_start_date || !plan_end_date) return;
+
+    const start = new Date(plan_start_date);
+    const end = new Date(plan_end_date);
+
+    if (start > end) {
+      currentErrors.plan_start_date = "Plan start cannot be after plan end";
+      return;
+    }
+
+    const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    
+    if (level === "LOW" && diffDays >= 7) {
+      currentErrors.plan_end_date = "Low effort should be less than 7 days";
+    } else if (level === "MID" && (diffDays < 7 || diffDays > 21)) {
+      currentErrors.plan_end_date = "Mid effort should be between 7–21 days";
+    } else if (level === "HIGH" && diffDays <= 21) {
+      currentErrors.plan_end_date = "High effort should be more than 21 days";
+    }
   };
 
   const validate = () => {
     const newErrors = {};
-    const { project_name, assigned_to, assigned_to_group, project_type_id, level, req_date, plan_start_date, plan_end_date, remark } = formData;
-
     if (!project_name) newErrors.project_name = "Project name is required";
-    if (!project_type_id) newErrors.project_type_id = "Project type is required";
     if (!assigned_to) newErrors.assigned_to = "Assigned To is required";
-    if (currentUser.role === ROLES.ADMIN && !assigned_to_group) newErrors.assigned_to_group = "Group is required";
+    if (userRole === "ADMIN" && !assigned_to_group) newErrors.assigned_to_group = "Assigned To Group is required";
+    if (!project_type_id) newErrors.project_type_id = "Project type is required";
     if (!level) newErrors.level = "Effort level is required";
     if (!req_date) newErrors.req_date = "Request date is required";
-    if (!plan_start_date) newErrors.plan_start_date = "Start date is required";
-    if (!plan_end_date) newErrors.plan_end_date = "End date is required";
+    if (!plan_start_date) newErrors.plan_start_date = "Plan start date is required";
+    if (!plan_end_date) newErrors.plan_end_date = "Plan end date is required";
     if (!remark) newErrors.remark = "Remark is required";
 
-    const dateError = validateProjectDuration(plan_start_date, plan_end_date, level);
-    if (dateError) {
-      if (dateError.includes("start")) newErrors.plan_start_date = dateError;
-      else newErrors.plan_end_date = dateError;
-    }
+    checkDateValidation(newErrors);
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  // --- Handlers ---
+
+  const showError = (msg) => {
+    setAlert({ message: msg, type: "error" });
+    setTimeout(() => setAlert(null), 3000);
+  };
+
+  const updateProject = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      showError("You must be logged in to update a project");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await axios.patch(
+        `http://localhost:5000/projects/${id_project}`,
+        {
+          assigned_to: Number(assigned_to), // Mengirim value (SAP ID)
+          assigned_to_group,
+          project_name,
+          project_type_id,
+          level,
+          req_date,
+          plan_start_date,
+          plan_end_date,
+          live_date: live_date || null,
+          remark,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setAlert(null);
+      onSave();
+      onClose();
+    } catch (err) {
+      const msg = err.response?.data?.msg || "Failed to update project, please try again!";
+      showError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!validate()) {
-      setAlert({ message: "Validation failed. Please check the fields.", type: "error" });
+      showError("Failed to update project because of missing or invalid fields");
       return;
     }
 
@@ -204,133 +211,204 @@ const EditProject = ({ id_project, onClose, onSave }) => {
       message: "Are you sure you want to update this project?",
       type: "confirm",
       actions: [
-        { label: "Cancel", onClick: () => setAlert(null) },
-        {
-          label: "Confirm",
-          onClick: async () => {
-            setLoading(true);
-            try {
-              const token = localStorage.getItem("token");
-              await axios.patch(
-                `${API_BASE}/projects/${id_project}`,
-                {
-                  ...formData,
-                  assigned_to: Number(formData.assigned_to),
-                  live_date: formData.live_date || null,
-                },
-                { headers: { Authorization: `Bearer ${token}` } }
-              );
-              onSave();
-              onClose();
-            } catch (err) {
-              const msg = err.response?.data?.msg || "Failed to update project.";
-              setAlert({ message: msg, type: "error" });
-            } finally {
-              setLoading(false);
-            }
-          }
-        }
-      ]
+        { label: "Cancel", type: "cancel", onClick: () => setAlert(null) },
+        { label: "Confirm", type: "confirm", onClick: () => { setAlert(null); updateProject(); } },
+      ],
     });
   };
 
-  // Derived Option for Assigned User
-  const assignedUserOptions = useMemo(() => {
-    if (!formData.assigned_to_group) return [];
-    return (options.users[formData.assigned_to_group] || []).map(u => ({
-      value: u.SAP,
-      label: u.name
-    }));
-  }, [formData.assigned_to_group, options.users]);
+  // --- Pre-calculated JSX Options ---
+  
+  // FIX 2: Menggunakan u.SAP sebagai value (sesuai kode lama Anda)
+  const userOptions = useMemo(() => {
+    return getAssignedToUsers().map((u) => (
+      <option key={u.SAP || u.id_user} value={u.SAP || u.id_user}>
+        {u.name}
+      </option>
+    ));
+  }, [getAssignedToUsers]);
+
+  const typeOptions = useMemo(() => {
+    return projectTypes.map((type) => (
+      <option key={type.id_type} value={type.id_type}>
+        {type.project_type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+      </option>
+    ));
+  }, [projectTypes]);
+
+  // --- Render Functions ---
+
+  const renderAssignedToSection = () => {
+    if (userRole !== "ADMIN") {
+      return (
+        <div className="flex flex-col gap-1">
+          <label className="font-medium text-xs text-gray-700">Assigned To</label>
+          <input
+            type="text"
+            value={`${userName}`}
+            disabled
+            className="border rounded-lg px-2 py-1.5 text-xs bg-gray-100 text-gray-600 w-full"
+          />
+          <input type="hidden" value={assigned_to} />
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <div className="flex flex-col gap-1">
+          <label className="font-medium text-xs text-gray-700">Assigned To Group</label>
+          <select
+            value={assigned_to_group}
+            onChange={(e) => {
+              setAssignedToGroup(e.target.value);
+              setAssignedTo("");
+            }}
+            className={getInputClass("assigned_to_group", errors) + " appearance-none cursor-pointer"}
+          >
+            <option value="">-- Select Group --</option>
+            <option value="ITBP">ITBP</option>
+            <option value="SAP">SAP</option>
+            <option value="DATA_SCIENCE">Data Science</option>
+          </select>
+          {errors.assigned_to_group && (
+            <span className="text-red-500 text-xs mt-0.5">{errors.assigned_to_group}</span>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="font-medium text-xs text-gray-700">Assigned To User</label>
+          <select
+            value={assigned_to}
+            onChange={(e) => setAssignedTo(e.target.value)}
+            className={getInputClass("assigned_to", errors) + " appearance-none cursor-pointer"}
+            disabled={!assigned_to_group}
+          >
+            <option value="">-- Select User --</option>
+            {userOptions}
+          </select>
+          {errors.assigned_to && (
+            <span className="text-red-500 text-xs mt-0.5">{errors.assigned_to}</span>
+          )}
+        </div>
+      </>
+    );
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4 font-sans backdrop-blur-sm">
-      <div className="bg-white rounded-xl w-[700px] max-w-full shadow-2xl overflow-hidden transition-all duration-300">
-        
-        {/* Header */}
-        <div className="p-4 flex justify-between items-center text-white bg-blue-600 border-b border-blue-700">
-          <h3 className="text-sm font-bold m-0">FORM EDIT PROJECT</h3>
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-white/20 transition-colors text-white">
+      <div className="bg-white rounded-xl w-[700px] max-w-full shadow-2xl overflow-hidden">
+        <div className={`p-4 flex justify-between items-center text-white ${primaryBlue} border-b border-blue-700`}>
+          <h3 className="text-sm font-bold">FORM EDIT PROJECT</h3>
+          <button onClick={onClose} className="p-1 rounded-full hover:bg-white/20 transition-colors">
             <FaTimes className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="p-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            
-            <FormInput 
-              label="Project Name" 
-              name="project_name" 
-              value={formData.project_name} 
-              onChange={handleChange} 
-              error={errors.project_name} 
-            />
+            {/* Project Name */}
+            <div className="flex flex-col gap-1">
+              <label className="font-medium text-xs text-gray-700">Project Name</label>
+              <input
+                type="text"
+                value={project_name}
+                onChange={(e) => setProjectName(e.target.value)}
+                className={getInputClass("project_name", errors)}
+                placeholder="Project Name"
+              />
+              {errors.project_name && <span className="text-red-500 text-xs mt-0.5">{errors.project_name}</span>}
+            </div>
 
-            <FormSelect 
-              label="Project Type" 
-              name="project_type_id" 
-              value={formData.project_type_id} 
-              onChange={handleChange} 
-              error={errors.project_type_id} 
-              options={options.projectTypes} 
-            />
+            {/* Project Type */}
+            <div className="flex flex-col gap-1">
+              <label className="font-medium text-xs text-gray-700">Project Type</label>
+              <select
+                value={project_type_id}
+                onChange={(e) => setProjectTypeId(Number(e.target.value))}
+                className={getInputClass("project_type_id", errors) + " appearance-none cursor-pointer"}
+              >
+                <option value="">-- Select Project Type --</option>
+                {typeOptions}
+              </select>
+              {errors.project_type_id && <span className="text-red-500 text-xs mt-0.5">{errors.project_type_id}</span>}
+            </div>
 
-            {/* Assigned To Logic */}
-            {currentUser.role === ROLES.ADMIN ? (
-              <>
-                <FormSelect 
-                  label="Assigned To Group" 
-                  name="assigned_to_group" 
-                  value={formData.assigned_to_group} 
-                  onChange={handleChange} 
-                  error={errors.assigned_to_group} 
-                  options={[
-                    { value: ROLES.ITBP, label: "ITBP" },
-                    { value: ROLES.SAP, label: "SAP" },
-                    { value: ROLES.DS, label: "Data Science" },
-                  ]} 
-                />
-                <FormSelect 
-                  label="Assigned To User" 
-                  name="assigned_to" 
-                  value={formData.assigned_to} 
-                  onChange={handleChange} 
-                  error={errors.assigned_to} 
-                  options={assignedUserOptions} 
-                  disabled={!formData.assigned_to_group}
-                />
-              </>
-            ) : (
-              // Read-only for non-admin editing their own project context (typically)
-               <FormInput 
-                 label="Assigned To" 
-                 name="assigned_to_display" 
-                 value={currentUser.name} 
-                 disabled={true} 
-               />
-            )}
+            {/* Assigned To Section */}
+            {renderAssignedToSection()}
 
-            <FormSelect 
-              label="Effort Est Level" 
-              name="level" 
-              value={formData.level} 
-              onChange={handleChange} 
-              error={errors.level} 
-              options={[
-                { value: "HIGH", label: "High" },
-                { value: "MID", label: "Mid" },
-                { value: "LOW", label: "Low" },
-              ]} 
-            />
+            {/* Effort Level */}
+            <div className="flex flex-col gap-1">
+              <label className="font-medium text-xs text-gray-700">Effort Est Level</label>
+              <select
+                value={level}
+                onChange={(e) => setLevel(e.target.value)}
+                className={getInputClass("level", errors) + " appearance-none cursor-pointer"}
+              >
+                <option value="">-- Select Effort Level --</option>
+                <option value="HIGH">High</option>
+                <option value="MID">Mid</option>
+                <option value="LOW">Low</option>
+              </select>
+              {errors.level && <span className="text-red-500 text-xs mt-0.5">{errors.level}</span>}
+            </div>
 
-            <FormInput label="Request Date" name="req_date" type="date" value={formData.req_date} onChange={handleChange} error={errors.req_date} />
-            <FormInput label="Plan Start" name="plan_start_date" type="date" value={formData.plan_start_date} onChange={handleChange} error={errors.plan_start_date} />
-            <FormInput label="Plan End" name="plan_end_date" type="date" value={formData.plan_end_date} onChange={handleChange} error={errors.plan_end_date} />
-            <FormInput label="Go Live" name="live_date" type="date" value={formData.live_date} onChange={handleChange} />
+            {/* Dates */}
+            <div className="flex flex-col gap-1">
+              <label className="font-medium text-xs text-gray-700">Request Date</label>
+              <input
+                type="date"
+                value={req_date}
+                onChange={(e) => setReqDate(e.target.value)}
+                className={getInputClass("req_date", errors)}
+              />
+              {errors.req_date && <span className="text-red-500 text-xs mt-0.5">{errors.req_date}</span>}
+            </div>
 
-            <div className="sm:col-span-2">
-              <FormInput label="Remark" name="remark" value={formData.remark} onChange={handleChange} error={errors.remark} placeholder="Project notes..." />
+            <div className="flex flex-col gap-1">
+              <label className="font-medium text-xs text-gray-700">Plan Start</label>
+              <input
+                type="date"
+                value={plan_start_date}
+                onChange={(e) => setPlanStartDate(e.target.value)}
+                className={getInputClass("plan_start_date", errors)}
+              />
+              {errors.plan_start_date && <span className="text-red-500 text-xs mt-0.5">{errors.plan_start_date}</span>}
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="font-medium text-xs text-gray-700">Plan End</label>
+              <input
+                type="date"
+                value={plan_end_date}
+                onChange={(e) => setPlanEndDate(e.target.value)}
+                className={getInputClass("plan_end_date", errors)}
+              />
+              {errors.plan_end_date && <span className="text-red-500 text-xs mt-0.5">{errors.plan_end_date}</span>}
+            </div>
+
+            {/* Go Live */}
+            <div className="flex flex-col gap-1">
+              <label className="font-medium text-xs text-gray-700">Go Live</label>
+              <input
+                type="date"
+                value={live_date}
+                onChange={(e) => setLiveDate(e.target.value)}
+                className={getInputClass("live_date", errors)}
+              />
+            </div>
+
+            {/* Remark */}
+            <div className="flex flex-col gap-1 sm:col-span-2">
+              <label className="font-medium text-xs text-gray-700">Remark</label>
+              <input
+                type="text"
+                value={remark}
+                onChange={(e) => setRemark(e.target.value)}
+                className={getInputClass("remark", errors)}
+                placeholder="Project notes or brief description"
+              />
+              {errors.remark && <span className="text-red-500 text-xs mt-0.5">{errors.remark}</span>}
             </div>
           </div>
 
@@ -338,7 +416,9 @@ const EditProject = ({ id_project, onClose, onSave }) => {
             <button
               type="submit"
               disabled={loading}
-              className={`${loading ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"} text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-md transition-all hover:shadow-lg`}
+              className={`${
+                loading ? "bg-gray-400 cursor-not-allowed" : primaryGreen
+              } text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-md transition-all duration-200 transform active:scale-[0.98] hover:shadow-lg`}
             >
               <FaSave className="w-4 h-4" /> {loading ? "Updating..." : "Update Project"}
             </button>
@@ -350,7 +430,7 @@ const EditProject = ({ id_project, onClose, onSave }) => {
             message={alert.message}
             type={alert.type}
             onClose={() => setAlert(null)}
-            actions={alert.actions || [{ label: "OK", onClick: () => setAlert(null) }]}
+            actions={alert.actions || [{ label: "OK", type: "confirm", onClick: () => setAlert(null) }]}
           />
         )}
       </div>

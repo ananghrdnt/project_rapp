@@ -118,8 +118,9 @@ const InfoTask = ({ task, onClose }) => {
                 <FaHistory className="w-3 h-3" /> Update History
               </h4>
               <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-gray-50 shadow-inner">
-                {task.update_history.map((u, idx) => (
-                  <div key={idx} className="mb-2 p-1 border border-gray-300 rounded-md bg-white last:mb-0 shadow-sm">
+                {task.update_history.map((u) => (
+                  // FIX 1: Menggunakan kombinasi updated_at dan updated_by sebagai key
+                  <div key={`${u.updated_at}_${u.updated_by}`} className="mb-2 p-1 border border-gray-300 rounded-md bg-white last:mb-0 shadow-sm">
                     <div className="text-gray-700 text-[10px] mb-1 pb-1 border-b">
                       <span className="font-bold text-gray-900">{u.updated_by}</span> updated at{" "}
                       <span className="font-mono text-blue-700">{formatDateTime(u.updated_at)}</span>
@@ -131,8 +132,9 @@ const InfoTask = ({ task, onClose }) => {
                           <span>Before</span>
                           <span>After</span>
                         </div>
-                        {u.changes.split(", ").map((change, i) => (
-                          <HistoryRow key={i} change={change} fieldLabels={fieldLabels} formatAssignedHistory={formatAssignedHistory} />
+                        {u.changes.split(", ").map((change) => (
+                          // FIX 2: Menggunakan string change itu sendiri sebagai key
+                          <HistoryRow key={change} change={change} fieldLabels={fieldLabels} formatAssignedHistory={formatAssignedHistory} />
                         ))}
                       </div>
                     ) : (
