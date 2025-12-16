@@ -1,9 +1,6 @@
 import React, { useMemo } from "react";
 import { FaTimes, FaInfoCircle, FaHistory } from "react-icons/fa";
 
-/* ------------------------------------------------------
-   KOMPONEN REUSABLE DI LUAR PARENT COMPONENT
------------------------------------------------------- */
 const MetaInfoItem = ({ label, value, fieldLabels }) => (
   <div className="flex flex-col gap-0.5">
     <label className="font-semibold text-[10px] text-gray-500 uppercase">
@@ -26,7 +23,7 @@ const ChangeItem = ({ field, beforeVal, afterVal, fieldLabels }) => {
   );
 };
 
-const HistoryItem = ({ update, index, formatDateTime, config, formatValue, getProjectTypeName }) => {
+const HistoryItem = ({ update, formatDateTime, config, formatValue, getProjectTypeName }) => {
   const changes = update.changes?.split(", ") || [];
 
   return (
@@ -43,10 +40,11 @@ const HistoryItem = ({ update, index, formatDateTime, config, formatValue, getPr
             <span>Before</span>
             <span>After</span>
           </div>
-          {changes.map((change, i) => {
+          {changes.map((change) => {
             const [rawField, rawValues] = change.split(": ");
             const [before, after] = rawValues?.split(" → ") || ["", ""];
             const field = rawField?.trim();
+            
             if (config.excludedFields.includes(field)) return null;
 
             let beforeVal = before?.replace(/'/g, "") || "";
@@ -62,7 +60,7 @@ const HistoryItem = ({ update, index, formatDateTime, config, formatValue, getPr
 
             return (
               <ChangeItem
-                key={`${index}-${i}`}
+                key={field}
                 field={field}
                 beforeVal={beforeVal}
                 afterVal={afterVal}
@@ -78,9 +76,7 @@ const HistoryItem = ({ update, index, formatDateTime, config, formatValue, getPr
   );
 };
 
-/* ------------------------------------------------------
-   COMPONENT UTAMA
------------------------------------------------------- */
+
 const InfoProject = ({ project, onClose }) => {
   const config = useMemo(
     () => ({
@@ -185,11 +181,10 @@ const InfoProject = ({ project, onClose }) => {
                 <FaHistory className="w-3 h-3" /> Update History
               </h4>
               <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-gray-50 shadow-inner">
-                {project.update_history.map((update, idx) => (
+                {project.update_history.map((update) => (
                   <HistoryItem
-                    key={idx}
+                    key={`${update.updated_at}_${update.updated_by}`}
                     update={update}
-                    index={idx}
                     formatDateTime={formatDateTime}
                     config={config}
                     formatValue={formatValue}
